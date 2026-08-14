@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cribbage — Timothy Hadfield</title>
+<meta name="description" content="Play cribbage against a strong computer opponent, or against a friend online.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>&#127183;</text></svg>">
+<style>
+  /* Palette lifted from the Board & Card Games hub so this reads as a sibling
+     of the other projects rather than a stray page. */
+  :root {
+    --bg: #0f1117;
+    --bg-soft: #161923;
+    --card: #1a1e2b;
+    --card-hover: #212636;
+    --line: #2a3042;
+    --text: #e8eaf0;
+    --muted: #969db4;
+    --accent: #6ea8fe;
+    --accent-warm: #f0b354;
+    --good: #6ee7a8;
+    --bad: #f08c8c;
+    --felt: #17342a;
+    --shadow: 0 1px 2px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.28);
+    --radius: 12px;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body { height: 100%; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font: 16px/1.55 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -webkit-tap-highlight-color: transparent;
+  }
+  a { color: var(--accent); }
+  button { font: inherit; color: inherit; }
+
+  .wrap { max-width: 760px; margin: 0 auto; padding: 0 16px 48px; }
+
+  /* ------------------------------------------------------------- buttons */
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+    background: var(--card); border: 1px solid var(--line); color: var(--text);
+    border-radius: 10px; padding: 11px 18px; cursor: pointer; font-weight: 600;
+    transition: background .12s, border-color .12s, transform .06s;
+  }
+  .btn:hover:not(:disabled) { background: var(--card-hover); border-color: #3a4258; }
+  .btn:active:not(:disabled) { transform: translateY(1px); }
+  .btn:disabled { opacity: .4; cursor: not-allowed; }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: #0d1424; }
+  .btn.primary:hover:not(:disabled) { background: #86b8ff; border-color: #86b8ff; }
+  .btn.ghost { background: transparent; }
+  .btn.small { padding: 7px 12px; font-size: 14px; border-radius: 8px; }
+
+  input[type=text] {
+    background: var(--bg-soft); border: 1px solid var(--line); color: var(--text);
+    border-radius: 10px; padding: 11px 14px; width: 100%; font: inherit;
+  }
+  input[type=text]:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+
+  /* -------------------------------------------------------------- screens */
+  .screen { display: none; }
+  .screen.active { display: block; }
+
+  /* ---------------------------------------------------------------- menu */
+  header.hero { padding: 56px 0 28px; text-align: center; }
+  header.hero .eyebrow {
+    font-size: 12px; letter-spacing: .16em; text-transform: uppercase;
+    color: var(--accent-warm); font-weight: 700; margin: 0 0 10px;
+  }
+  header.hero h1 { margin: 0 0 8px; font-size: clamp(34px, 8vw, 50px); letter-spacing: -.02em; }
+  header.hero p { margin: 0; color: var(--muted); }
+
+  .panel {
+    background: var(--card); border: 1px solid var(--line);
+    border-radius: var(--radius); padding: 20px; margin-bottom: 16px;
+    box-shadow: var(--shadow);
+  }
+  .panel h2 { margin: 0 0 4px; font-size: 18px; }
+  .panel .sub { margin: 0 0 16px; color: var(--muted); font-size: 14px; }
+
+  .seg { display: flex; gap: 8px; margin-bottom: 16px; }
+  .seg button {
+    flex: 1; background: var(--bg-soft); border: 1px solid var(--line);
+    border-radius: 10px; padding: 10px 6px; cursor: pointer; text-align: center;
+    font-size: 14px; font-weight: 600; transition: background .12s, border-color .12s;
+  }
+  .seg button:hover { background: var(--card-hover); }
+  .seg button[aria-pressed="true"] { background: rgba(110,168,254,.14); border-color: var(--accent); color: var(--accent); }
+  .seg .lvl-note { display: block; font-weight: 400; font-size: 11.5px; color: var(--muted); margin-top: 3px; }
+  .seg button[aria-pressed="true"] .lvl-note { color: #9dc3ff; }
+
+  .row { display: flex; gap: 10px; align-items: center; }
+  .row > * { min-width: 0; }
+  .stack { display: flex; flex-direction: column; gap: 10px; }
+
+  .note { color: var(--muted); font-size: 13px; margin: 10px 0 0; }
+  .status { font-size: 14px; min-height: 20px; margin-top: 12px; }
+  .status.err { color: var(--bad); }
+  .status.busy { color: var(--accent-warm); }
+
+  /* --------------------------------------------------------------- table */
+  .topbar {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 12px; padding: 14px 0; border-bottom: 1px solid var(--line); margin-bottom: 16px;
+  }
+  .topbar h2 { margin: 0; font-size: 16px; font-weight: 700; }
+  .topbar .who { color: var(--muted); font-size: 13px; font-weight: 400; }
+
+  /* ---- the board: one lane per player, front and back peg ---- */
+  .board { background: var(--bg-soft); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px 16px 12px; margin-bottom: 14px; }
+  .lane { margin-bottom: 12px; }
+  .lane:last-child { margin-bottom: 0; }
+  .lane-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 6px; }
+  .lane-name { font-size: 14px; font-weight: 600; display: flex; align-items: center; gap: 7px; }
+  .lane-name .dot { width: 9px; height: 9px; border-radius: 50%; flex: none; }
+  .lane-name .crown { font-size: 12px; color: var(--accent-warm); font-weight: 700; letter-spacing: .04em; }
+  .lane-score { font-variant-numeric: tabular-nums; font-size: 20px; font-weight: 700; }
+  .lane-score .gain { font-size: 13px; color: var(--good); margin-left: 6px; font-weight: 600; }
+  .track { position: relative; height: 14px; background: #0c0e14; border: 1px solid var(--line); border-radius: 7px; overflow: hidden; }
+  .track .fill { position: absolute; inset: 0 auto 0 0; border-radius: 7px 0 0 7px; opacity: .30; transition: width .45s ease; }
+  .track .back { position: absolute; top: 0; bottom: 0; width: 2px; background: rgba(255,255,255,.35); transition: left .45s ease; }
+  .track .front { position: absolute; top: -2px; bottom: -2px; width: 4px; border-radius: 2px; transition: left .45s ease; box-shadow: 0 0 8px currentColor; }
+  .track .skunk { position: absolute; top: 0; bottom: 0; left: 75.2%; width: 1px; background: rgba(240,179,84,.5); }
+  .board .ticks { display: flex; justify-content: space-between; font-size: 10.5px; color: var(--muted); margin-top: 5px; font-variant-numeric: tabular-nums; }
+
+  /* ---- cards ---- */
+  .cards { display: flex; flex-wrap: wrap; gap: 7px; }
+  .card-el {
+    width: 46px; height: 64px; border-radius: 7px; background: #f4f1ea; color: #16181f;
+    border: 1px solid #cdc7bb; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; line-height: 1;
+    font-weight: 700; user-select: none; flex: none;
+    box-shadow: 0 2px 5px rgba(0,0,0,.35);
+    transition: transform .12s, box-shadow .12s, outline-color .12s;
+  }
+  .card-el .r { font-size: 17px; }
+  .card-el .s { font-size: 15px; margin-top: 1px; }
+  .card-el.red { color: #c0392b; }
+  .card-el.back {
+    background: repeating-linear-gradient(45deg, #2b3550 0 5px, #232c44 5px 10px);
+    border-color: #3a4463; color: transparent; box-shadow: 0 2px 5px rgba(0,0,0,.4);
+  }
+  .card-el.small { width: 34px; height: 48px; }
+  .card-el.small .r { font-size: 13px; }
+  .card-el.small .s { font-size: 11px; }
+  .card-el.playable { cursor: pointer; outline: 2px solid transparent; }
+  .card-el.playable:hover { transform: translateY(-6px); box-shadow: 0 8px 16px rgba(0,0,0,.45); }
+  .card-el.selected { transform: translateY(-10px); outline: 2px solid var(--accent-warm); box-shadow: 0 10px 18px rgba(0,0,0,.5); }
+  .card-el.dim { opacity: .32; }
+  .card-el.ghost { background: transparent; border: 1px dashed var(--line); box-shadow: none; }
+  .card-el.hl { outline: 2px solid var(--accent); }
+
+  /* ---- the felt: starter, crib, running count ---- */
+  .felt {
+    background: linear-gradient(180deg, var(--felt), #12261f);
+    border: 1px solid #23483b; border-radius: var(--radius);
+    padding: 14px; margin-bottom: 14px;
+  }
+  .felt-row { display: flex; gap: 16px; align-items: flex-start; }
+  .felt-col { display: flex; flex-direction: column; gap: 6px; align-items: center; }
+  .felt-label { font-size: 10.5px; letter-spacing: .1em; text-transform: uppercase; color: #7fb39f; font-weight: 700; }
+  .felt-main { flex: 1; min-width: 0; }
+  .count-big {
+    font-size: 30px; font-weight: 800; font-variant-numeric: tabular-nums; line-height: 1;
+  }
+  .count-cap { font-size: 11px; color: #7fb39f; letter-spacing: .08em; text-transform: uppercase; font-weight: 700; }
+  .seq { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 9px; min-height: 48px; }
+  .seq .sep { width: 1px; align-self: stretch; background: rgba(255,255,255,.18); margin: 0 3px; }
+
+  /* ---- hands ---- */
+  .hand-block { margin-bottom: 14px; }
+  .hand-head { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 7px; }
+  .hand-head .label { font-size: 12px; letter-spacing: .09em; text-transform: uppercase; color: var(--muted); font-weight: 700; }
+  .hand-head .meta { font-size: 12.5px; color: var(--muted); }
+  .hand-head .meta.turn { color: var(--accent-warm); font-weight: 700; }
+
+  /* ---- prompt + actions ---- */
+  .prompt {
+    background: var(--card); border: 1px solid var(--line); border-left: 3px solid var(--accent);
+    border-radius: 10px; padding: 13px 15px; margin-bottom: 12px;
+  }
+  .prompt .p-title { font-weight: 700; }
+  .prompt .p-sub { color: var(--muted); font-size: 13.5px; margin-top: 2px; }
+  .actions { display: flex; flex-wrap: wrap; gap: 9px; margin-bottom: 16px; }
+
+  /* ---- the count breakdown at the show ---- */
+  .breakdown { display: flex; flex-direction: column; gap: 4px; margin-top: 10px; }
+  .bd-item { display: flex; align-items: center; gap: 9px; font-size: 13.5px; }
+  .bd-item .pts { font-variant-numeric: tabular-nums; color: var(--good); font-weight: 700; min-width: 26px; }
+  .bd-item .cards { gap: 3px; }
+  .bd-total { border-top: 1px solid var(--line); margin-top: 6px; padding-top: 7px; font-weight: 700; display: flex; justify-content: space-between; }
+  .bd-none { color: var(--muted); font-size: 13.5px; font-style: italic; }
+
+  /* ---- log ---- */
+  .log { background: var(--bg-soft); border: 1px solid var(--line); border-radius: var(--radius); padding: 12px 14px; }
+  .log h3 { margin: 0 0 8px; font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+  .log ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column-reverse; gap: 3px; max-height: 190px; overflow-y: auto; }
+  .log li { font-size: 13px; color: var(--muted); }
+  .log li.mine { color: var(--text); }
+  .log li .pts { color: var(--good); font-weight: 700; }
+
+  /* ---- the win banner ---- */
+  .banner {
+    background: linear-gradient(135deg, rgba(110,168,254,.16), rgba(240,179,84,.12));
+    border: 1px solid var(--accent); border-radius: var(--radius);
+    padding: 20px; text-align: center; margin-bottom: 14px;
+  }
+  .banner h2 { margin: 0 0 4px; font-size: 24px; }
+  .banner p { margin: 0; color: var(--muted); }
+
+  /* ---- the "waiting for an opponent" state ---- */
+  .waiting { text-align: center; padding: 28px 12px; }
+  .waiting .code {
+    font-size: 34px; font-weight: 800; letter-spacing: .22em; font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    color: var(--accent-warm); margin: 14px 0 6px; padding-left: .22em;
+  }
+  .spinner {
+    width: 22px; height: 22px; border: 2.5px solid var(--line); border-top-color: var(--accent);
+    border-radius: 50%; animation: spin .8s linear infinite; margin: 0 auto 14px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ---- rules sheet ---- */
+  details.rules { margin-top: 8px; }
+  details.rules summary { cursor: pointer; color: var(--muted); font-size: 14px; padding: 6px 0; }
+  details.rules summary:hover { color: var(--text); }
+  details.rules .body { font-size: 14px; color: var(--muted); padding: 6px 0 2px; }
+  details.rules h4 { color: var(--text); font-size: 14px; margin: 14px 0 4px; }
+  details.rules ul { margin: 4px 0; padding-left: 20px; }
+
+  footer { text-align: center; color: var(--muted); font-size: 13px; padding: 28px 0 8px; }
+  footer a { color: var(--muted); }
+
+  @media (max-width: 420px) {
+    .card-el { width: 40px; height: 56px; }
+    .card-el .r { font-size: 15px; }
+    .card-el.small { width: 29px; height: 41px; }
+    .felt-row { gap: 11px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+
+  <!-- ==================================================== MENU ========== -->
+  <section class="screen active" id="screen-menu">
+    <header class="hero">
+      <p class="eyebrow">Board &amp; Card Games</p>
+      <h1>Cribbage</h1>
+      <p>Play to 121 against the computer, or against a friend.</p>
+    </header>
+
+    <div class="panel">
+      <h2>Play the computer</h2>
+      <p class="sub">Nothing to set up — it deals straight away.</p>
+      <div class="seg" id="difficulty" role="group" aria-label="Difficulty">
+        <button data-level="easy" aria-pressed="false">Easy<span class="lvl-note">plays by feel</span></button>
+        <button data-level="medium" aria-pressed="false">Medium<span class="lvl-note">counts every cut</span></button>
+        <button data-level="hard" aria-pressed="true">Hard<span class="lvl-note">weighs the crib too</span></button>
+      </div>
+      <button class="btn primary" id="btn-vs-cpu" style="width:100%">Deal</button>
+    </div>
+
+    <div class="panel">
+      <h2>Play someone else</h2>
+      <p class="sub">Get matched with whoever else is looking, or share a code with a friend.</p>
+      <div class="stack">
+        <input type="text" id="display-name" maxlength="20" placeholder="Your name" autocomplete="nickname">
+        <button class="btn primary" id="btn-find">Find an opponent</button>
+        <div class="row">
+          <input type="text" id="join-code" maxlength="6" placeholder="Room code" autocomplete="off"
+                 style="text-transform:uppercase; letter-spacing:.12em; font-family:ui-monospace,Menlo,monospace">
+          <button class="btn" id="btn-join">Join</button>
+        </div>
+        <button class="btn ghost" id="btn-host">Create a private room</button>
+      </div>
+      <p class="status" id="online-status"></p>
+    </div>
+
+    <details class="rules">
+      <summary>How cribbage works</summary>
+      <div class="body">
+        <p>Two players race to <strong>121 points</strong>. The winner is whoever gets there
+           first — the moment someone reaches 121 the game stops, even mid-count.</p>
+
+        <h4>The deal</h4>
+        <p>Six cards each. You both throw two away into the <em>crib</em>, which belongs to
+           the dealer and is counted at the end of the hand as a fifth hand. So you throw
+           good cards in when it's yours and rubbish in when it isn't. Then the non-dealer
+           cuts a <em>starter</em> card, shared by every hand. If it's a jack the dealer
+           takes 2 ("his heels").</p>
+
+        <h4>The play</h4>
+        <p>You take turns laying cards face up, calling a running total. It may never pass 31.</p>
+        <ul>
+          <li><strong>2</strong> for making the count exactly 15 or exactly 31</li>
+          <li><strong>2 / 6 / 12</strong> for a pair, three of a kind, four of a kind</li>
+          <li><strong>3+</strong> for a run of three or more, in any order</li>
+          <li><strong>1</strong> if your opponent can't play ("go"), and 1 for the last card</li>
+        </ul>
+
+        <h4>The show</h4>
+        <p>Each hand is counted with the starter as a fifth card — non-dealer first, then the
+           dealer, then the dealer's crib. That order decides close games.</p>
+        <ul>
+          <li><strong>2</strong> for every combination adding to 15</li>
+          <li><strong>2</strong> per pair (so three of a kind is 6, four is 12)</li>
+          <li><strong>3+</strong> per run, counted once for each way it can be made</li>
+          <li><strong>4</strong> for four cards of one suit, 5 if the starter matches
+              — in the crib only a five-card flush counts</li>
+          <li><strong>1</strong> for a jack matching the starter's suit ("his nobs")</li>
+        </ul>
+        <p>The best possible hand is 29. A hand can never be worth 19, which is why
+           a worthless hand gets called a nineteen.</p>
+      </div>
+    </details>
+
+    <footer>
+      <a href="../">← more board &amp; card games</a>
+    </footer>
+  </section>
+
+  <!-- ================================================= WAITING ========== -->
+  <section class="screen" id="screen-waiting">
+    <div class="panel waiting">
+      <div class="spinner"></div>
+      <h2 id="wait-title">Looking for an opponent…</h2>
+      <p class="sub" id="wait-sub">You'll be matched with the next person who's also looking.</p>
+      <div class="code" id="wait-code" hidden></div>
+      <p class="note" id="wait-note" hidden>Send this code to whoever you want to play.</p>
+      <button class="btn ghost" id="btn-cancel-wait" style="margin-top:16px">Cancel</button>
+    </div>
+  </section>
+
+  <!-- =================================================== GAME =========== -->
+  <section class="screen" id="screen-game">
+    <div class="topbar">
+      <div>
+        <h2 id="game-title">Cribbage</h2>
+        <div class="who" id="game-sub"></div>
+      </div>
+      <button class="btn small ghost" id="btn-quit">Quit</button>
+    </div>
+
+    <div id="banner-slot"></div>
+    <div class="board" id="board"></div>
+    <div class="prompt" id="prompt"></div>
+    <div class="actions" id="actions"></div>
+
+    <div class="hand-block">
+      <div class="hand-head">
+        <span class="label" id="opp-label">Opponent</span>
+        <span class="meta" id="opp-meta"></span>
+      </div>
+      <div class="cards" id="opp-hand"></div>
+    </div>
+
+    <div class="felt">
+      <div class="felt-row">
+        <div class="felt-col">
+          <span class="felt-label">Starter</span>
+          <div id="starter-slot"></div>
+        </div>
+        <div class="felt-col">
+          <span class="felt-label">Crib</span>
+          <div class="cards" id="crib-slot"></div>
+        </div>
+        <div class="felt-main">
+          <div class="count-cap">Count</div>
+          <div class="count-big" id="count-big">—</div>
+          <div class="cards seq" id="seq"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="hand-block">
+      <div class="hand-head">
+        <span class="label" id="you-label">Your hand</span>
+        <span class="meta" id="you-meta"></span>
+      </div>
+      <div class="cards" id="your-hand"></div>
+    </div>
+
+    <div class="log">
+      <h3>What just happened</h3>
+      <ul id="log"></ul>
+    </div>
+  </section>
+
+</div>
+
+<!-- Load order matters: each file uses the one above it. All plain scripts,
+     no build step — the only ES module is online.js, which needs one for the
+     Firebase CDN imports. -->
+<script src="js/score.js"></script>
+<script src="js/crib-ev.js"></script>
+<script src="js/engine.js"></script>
+<script src="js/ai.js"></script>
+<script src="js/local.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/app.js"></script>
+<script src="js/firebase-config.js"></script>
+<script type="module" src="js/online.js"></script>
+
+</body>
+</html>

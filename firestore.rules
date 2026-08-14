@@ -1,0 +1,168 @@
+rules_version = '2';
+
+// ============================================================================
+// Security rules for the cribbage site.
+//
+// These rules are the ENTIRE security boundary. There is no server and no
+// Cloud Functions (those need the paid plan), so anything not forbidden here
+// is permitted to any signed-in user on the internet — and since sign-in is
+// anonymous, "any signed-in user" means anyone at all. Deploy with:
+//     firebase deploy --only firestore:rules
+//
+// THE ONE INVARIANT: a player can read their own cards and nobody else's.
+// Everything below exists to hold that line. The host's browser necessarily
+// holds the whole deal — that limitation is documented in README.md and is not
+// something rules can fix — but nothing is ever *served* to the wrong player.
+//
+// Two shapes recur and are worth naming:
+//   • A document id that IS a secret (a room code) may be fetched by anyone who
+//     can name it, but the collection may never be LISTED — otherwise the code
+//     stops being a secret.
+//   • A field that grants something (claimedBy, guestUid, matchId) may only be
+//     moved from empty to YOUR OWN uid, with every other field pinned unchanged.
+//     That is what stops a passer-by rewriting someone else's game.
+// ============================================================================
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() { return request.auth != null; }
+    function uid()      { return request.auth.uid; }
+
+    // Which keys this write actually changes.
+    function touches(keys) {
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(keys);
+    }
+
+    // ---- the matchmaking queue -------------------------------------------
+    // Public by necessity: finding a stranger to play means being able to see
+    // that a stranger is waiting. It holds a display name and nothing else —
+    // no email, no history, no identifier beyond an anonymous uid.
+    match /queue/{userId} {
+      allow get, list: if signedIn();
+
+      allow create: if signedIn() && userId == uid()
+                    && request.resource.data.name is string
+                    && request.resource.data.name.size() > 0
+                    && request.resource.data.name.size() <= 20
+                    && request.resource.data.claimedBy == null
+                    && request.resource.data.matchId == null;
+
+      // Two legal updates, and no others:
+      //  1. CLAIMING an unclaimed entry — you may set claimedBy to your own uid
+      //     and touch nothing else. This is half of the transaction that pairs
+      //     two players; pinning every other field is what makes it safe to let
+      //     a stranger write to your document at all.
+      //  2. HANDING OVER THE MATCH — the player who claimed you (and only they)
+      //     may then write the match id.
+      allow update: if signedIn() && (
+                      (resource.data.claimedBy == null
+                        && request.resource.data.claimedBy == uid()
+                        && touches(['claimedBy']))
+                      ||
+                      (resource.data.claimedBy == uid()
+                        && touches(['matchId']))
+                    );
+
+      // Your own entry, or one you claimed and have now placed in a game.
+      allow delete: if signedIn()
+                    && (userId == uid() || resource.data.claimedBy == uid());
+    }
+
+    // ---- private rooms ----------------------------------------------------
+    // The document id IS the invitation, so `get` is open to anyone who can
+    // name it and `list` is CLOSED — do not loosen it, or every private room
+    // on the site becomes enumerable.
+    match /rooms/{code} {
+      allow get:  if signedIn();
+      allow list: if false;
+
+      allow create: if signedIn()
+                    && request.resource.data.hostUid == uid()
+                    && request.resource.data.guestUid == null
+                    && request.resource.data.matchId == null
+                    && request.resource.data.hostName is string
+                    && request.resource.data.hostName.size() <= 20;
+
+      allow update: if signedIn() && (
+                      // a guest taking the empty seat — their own uid, nothing else
+                      (resource.data.guestUid == null
+                        && request.resource.data.guestUid == uid()
+                        && request.resource.data.guestName is string
+                        && request.resource.data.guestName.size() <= 20
+                        && touches(['guestUid', 'guestName']))
+                      ||
+                      // the host attaching the match it just built
+                      (resource.data.hostUid == uid() && touches(['matchId']))
+                    );
+
+      allow delete: if signedIn() && resource.data.hostUid == uid();
+    }
+
+    // ---- live games -------------------------------------------------------
+    match /matches/{matchId} {
+
+      // Reading the parent match costs one document read per rule evaluation,
+      // which is why `players` and `hostUid` are denormalised onto it rather
+      // than living somewhere that would need a second lookup.
+      function m() {
+        return get(/databases/$(database)/documents/matches/$(matchId)).data;
+      }
+      function isPlayer() { return signedIn() && uid() in m().players; }
+      function isHost()   { return signedIn() && m().hostUid == uid(); }
+
+      // Only the two people playing. `list` is closed so games cannot be
+      // enumerated and watched from outside.
+      allow get:  if signedIn() && uid() in resource.data.players;
+      allow list: if false;
+
+      allow create: if signedIn()
+                    && request.resource.data.hostUid == uid()
+                    && request.resource.data.players.size() == 2
+                    && uid() in request.resource.data.players;
+
+      // The host is the referee: theirs is the only client allowed to move the
+      // game on. Everyone else influences it strictly through /actions below.
+      allow update, delete: if signedIn() && resource.data.hostUid == uid();
+
+      // ---- your cards ----
+      // THE INVARIANT. Only you may read the document holding your hand, and
+      // only the host may write one. `list` is closed, or a player could sweep
+      // the collection and read the lot.
+      match /private/{playerId} {
+        allow get:    if signedIn() && playerId == uid() && isPlayer();
+        allow list:   if false;
+        allow write:  if isHost();
+      }
+
+      // ---- the host's own full copy of the deal ----
+      // Both hands, the crib and the remaining deck, so that a host who
+      // reloads mid-game can pick the game back up. Nobody else touches it.
+      match /host/{key} {
+        allow read, write: if isHost();
+      }
+
+      // ---- moves in ----
+      // You may submit YOUR OWN moves and cannot read the queue; the host
+      // reads, applies and clears it. Pinning `by` to the sender is what stops
+      // a player submitting a move on their opponent's behalf — and the engine
+      // rejects anything illegal regardless, so this is belt and braces.
+      match /actions/{actionId} {
+        allow read:           if isHost();
+        allow create:         if isPlayer() && request.resource.data.by == uid();
+        allow update, delete: if isHost();
+      }
+
+      // ---- "are you still there" ----
+      match /presence/{playerId} {
+        allow read:  if isPlayer();
+        allow write: if signedIn() && playerId == uid() && isPlayer();
+      }
+    }
+
+    // Anything not matched above is denied.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

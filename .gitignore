@@ -1,0 +1,8 @@
+# Dev-only dependencies for the security-rules tests. The site itself has none.
+test/node_modules/
+
+# Emulator noise
+firestore-debug.log
+firebase-debug.log
+ui-debug.log
+.firebase/
