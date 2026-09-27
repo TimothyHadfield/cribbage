@@ -1,12 +1,34 @@
 # Cribbage
 
-Two-player cribbage to 121 — against a strong computer opponent, or against
-another person online. A static site: no build step, no framework, no
-dependencies at runtime.
+Two-player cribbage to 121 against a computer opponent that actually plays well: it searches every discard, weighs the crib, and thinks about what you might peg back.
 
-**Live:** https://timothyhadfield.github.io/cribbage/
+**[▶ Open the live app](https://timothyhadfield.github.io/cribbage/)** · works on phone and laptop
 
----
+<p align="center">
+  <img src="docs/screenshots/desktop.png" alt="Laptop view: pegging against the computer, count at 25, with the score bars on top" width="68%">
+  &nbsp;
+  <img src="docs/screenshots/phone.png" alt="Phone view: mid-hand pegging, count at 26" width="24%">
+</p>
+
+## Features
+- **A strong computer opponent** with three levels (Easy, Medium, Hard). In testing, Hard beats Easy about 78% of the time.
+- **"What should I throw?"**: asks the same engine for the best discard and explains it (what you keep, and what the hand and crib are worth on average).
+- **The full game**: deal, crib, cut, pegging with gos and 31s, then the show in the right order, stopping the moment someone reaches 121.
+- **Every count explained**: each hand and crib is broken down line by line (fifteens, pairs, runs, flushes, nobs).
+- **Score bars to 121** with the skunk line marked, plus a running log of every point scored.
+- **Built-in rules guide** on the menu for anyone learning the game.
+- **Online play (not switched on yet)**: matchmaking and private room codes are written and waiting on a Firebase project; see "Online play" below.
+
+<p align="center">
+  <img src="docs/screenshots/desktop-show.png" alt="Laptop view: counting a hand, with each fifteen listed" width="68%">
+  &nbsp;
+  <img src="docs/screenshots/phone-hint.png" alt="Phone view: the discard hint recommending which two cards to throw" width="24%">
+</p>
+
+## Built with
+Plain HTML, CSS and JavaScript with no build step, hosted on GitHub Pages; the rules engine and AI are tested with plain Node scripts. Online play is written for Firebase (free plan).
+
+## For developers
 
 ## How it fits together
 
