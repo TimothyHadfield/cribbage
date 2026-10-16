@@ -1,6 +1,9 @@
 # Dev-only dependencies for the security-rules tests. The site itself has none.
 test/node_modules/
 
+# Local test credentials / browser state (never commit)
+.claude/test/
+
 # Emulator noise
 firestore-debug.log
 firebase-debug.log
