@@ -361,7 +361,10 @@
     }
   });
   yourHand.addEventListener("keydown", (e) => {
-    if (e.key === "Enter" || e.key === " ") { e.preventDefault(); yourHand.dispatchEvent(new MouseEvent("click", { bubbles: true })); }
+    // Click the focused CARD. (Dispatching on the hand itself left
+    // e.target as the container, so Enter/Space never picked anything.)
+    const node = e.target.closest && e.target.closest(".card-el");
+    if (node && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); node.click(); }
   });
 
   // ========================================================= online bridge
