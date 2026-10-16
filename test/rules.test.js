@@ -92,6 +92,11 @@ const MATCH = {
     assertFails(getDocs(collection(as("bob"), "matches/m1/private"))));
   await check("a player cannot rewrite their own hand to something better",
     assertFails(setDoc(doc(as("bob"), "matches/m1/private/bob"), { hand: [4, 17, 30, 43] })));
+  await check("not even the host can LIST them (so leave() must delete by id)",
+    assertFails(getDocs(collection(as("alice"), "matches/m1/private"))));
+  await check("the host can delete a hand by id when tidying up",
+    assertSucceeds(deleteDoc(doc(as("alice"), "matches/m1/private/bob"))));
+  await seed();
   await check("the host writes the hands",
     assertSucceeds(setDoc(doc(as("alice"), "matches/m1/private/bob"), { seat: 1, hand: [5, 6, 7, 8] })));
 
@@ -163,8 +168,11 @@ const MATCH = {
     assertSucceeds(setDoc(doc(as("bob"), "queue/bob"), { name: "Bob", claimedBy: null, matchId: null })));
   await check("you cannot queue as somebody else",
     assertFails(setDoc(doc(as("bob"), "queue/erin"), { name: "Erin", claimedBy: null, matchId: null })));
+  // A fresh uid, so this is a CREATE. Re-using bob's entry made it an update,
+  // and claiming your own entry is the legal half of the pairing transaction
+  // in js/online.js, which is why this case used to fail.
   await check("you cannot join already claimed",
-    assertFails(setDoc(doc(as("bob"), "queue/bob"), { name: "Bob", claimedBy: "bob", matchId: null })));
+    assertFails(setDoc(doc(as("frank"), "queue/frank"), { name: "Frank", claimedBy: "frank", matchId: null })));
   await check("a name over 20 characters is refused",
     assertFails(setDoc(doc(as("bob"), "queue/bob"),
       { name: "x".repeat(21), claimedBy: null, matchId: null })));
@@ -188,6 +196,9 @@ const MATCH = {
     assertSucceeds(updateDoc(doc(as("dave"), "queue/carol"), { matchId: "m9" })));
   await check("a third party may not re-claim a taken entry",
     assertFails(updateDoc(doc(as("bob"), "queue/carol"), { claimedBy: "bob" })));
+  await check("the claimer may clear the entry it collected (a closed tab can't)",
+    assertSucceeds(deleteDoc(doc(as("dave"), "queue/carol"))));
+  await seed();
   await check("you can always leave the queue",
     assertSucceeds(deleteDoc(doc(as("carol"), "queue/carol"))));
   await seed();

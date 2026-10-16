@@ -27,12 +27,24 @@
  *   matches/{mid}/presence/{uid}   heartbeat, so a closed tab is noticed
  * ==========================================================================*/
 
-import { initializeApp } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-app.js";
-import { getAuth, onAuthStateChanged, signInAnonymously } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-auth.js";
-import {
-  getFirestore, doc, getDoc, setDoc, updateDoc, deleteDoc, collection, addDoc,
-  getDocs, onSnapshot, serverTimestamp, query, orderBy, limit, runTransaction,
-} from "https://www.gstatic.com/firebasejs/12.16.0/firebase-firestore.js";
+// The Firebase SDK (~245 KB) is fetched only when online play is configured.
+// While firebase-config.js is null it used to be downloaded and run on every
+// visit for nothing, which was most of the page's main-thread time.
+const FB = "https://www.gstatic.com/firebasejs/12.16.0/";
+let initializeApp, getAuth, onAuthStateChanged, signInAnonymously;
+let getFirestore, doc, getDoc, setDoc, updateDoc, deleteDoc, collection, addDoc,
+  getDocs, onSnapshot, serverTimestamp, query, orderBy, limit, runTransaction;
+if (window.FIREBASE_CONFIG) {
+  const [fApp, fAuth, fStore] = await Promise.all([
+    import(FB + "firebase-app.js"), import(FB + "firebase-auth.js"), import(FB + "firebase-firestore.js"),
+  ]);
+  ({ initializeApp } = fApp);
+  ({ getAuth, onAuthStateChanged, signInAnonymously } = fAuth);
+  ({
+    getFirestore, doc, getDoc, setDoc, updateDoc, deleteDoc, collection, addDoc,
+    getDocs, onSnapshot, serverTimestamp, query, orderBy, limit, runTransaction,
+  } = fStore);
+}
 
 const E = () => window.Engine;
 const emit = (name, detail) => document.dispatchEvent(new CustomEvent(name, { detail }));
@@ -41,6 +53,7 @@ const emit = (name, detail) => document.dispatchEvent(new CustomEvent(name, { de
 const CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 const HEARTBEAT_MS = 20000;
 const STALE_MS = 70000;
+const PARTNER_CLEAR_MS = 30000;
 
 let app = null, auth = null, db = null;
 let me = null;                 // { uid }
@@ -128,6 +141,10 @@ async function find(name) {
   await cleanupSearch();
 
   try {
+    // An entry left over from a closed tab or a reload would turn this setDoc
+    // into an UPDATE, which the rules refuse — so "Find a game" would fail
+    // until it was gone. Your own entry is always yours to delete.
+    try { await deleteDoc(pQueue(me.uid)); } catch (e) {}
     await setDoc(pQueue(me.uid), {
       name: myName, claimedBy: null, matchId: null, createdAt: serverTimestamp(),
     });
@@ -191,6 +208,12 @@ async function tryClaim() {
       if (!mid) return false;
       try { await updateDoc(pQueue(candidate.uid), { matchId: mid }); } catch (e) {}
       try { await deleteDoc(pQueue(me.uid)); } catch (e) {}
+      // Normally the partner deletes their own entry on seeing the match id.
+      // If their tab had already closed it would sit there claimed forever,
+      // filling the ten-oldest window tryClaim reads. Give a live partner
+      // ample time to collect the id, then clear it (the claimer may).
+      const theirs = pQueue(candidate.uid);
+      setTimeout(() => { deleteDoc(theirs).catch(() => {}); }, PARTNER_CLEAR_MS);
       queueRef = null;
       await joinMatch(mid);
       return true;
@@ -317,6 +340,9 @@ async function joinMatch(mid) {
     pub = inflate(snap.data());
     seat = (pub.players || []).indexOf(me.uid);
     if (!announced) { announced = true; emit("online:matched", { opponent: pub.names[E().other(seat)] }); }
+    // A finished game needs no heartbeat. Left running, a forgotten tab
+    // writes ~4,300 times a day into the free plan's 20,000 quota.
+    if (pub.winner !== null && pub.winner !== undefined) { stopHeartbeat(); oppStale = false; }
     attachHostPump();
     publish();
   }, () => {}));
@@ -329,6 +355,8 @@ async function joinMatch(mid) {
   subs.push(onSnapshot(cPresence(mid), (snap) => {
     const now = Date.now();
     oppStale = false;
+    // Once the game is over both heartbeats stop, so silence means nothing.
+    if (pub && pub.winner !== null && pub.winner !== undefined) { publish(); return; }
     snap.forEach((d) => {
       if (d.id === me.uid) return;
       const at = d.data().at && d.data().at.toMillis ? d.data().at.toMillis() : 0;
@@ -502,9 +530,15 @@ async function cancel() {
  */
 async function leave() {
   const mid = matchId, wasHost = isHost(), uid = me && me.uid;
+  const players = (pub && pub.players) || [];
   teardown();
   if (mid && wasHost) {
-    for (const sub of ["private", "actions", "presence", "host"]) {
+    // The rules forbid LISTING private (even for the host), so the hands are
+    // deleted by id; listing them silently failed and left them behind.
+    for (const pid of players) {
+      try { await deleteDoc(pPrivate(mid, pid)); } catch (e) {}
+    }
+    for (const sub of ["actions", "presence", "host"]) {
       try {
         const snap = await getDocs(collection(db, "matches", mid, sub));
         for (const d of snap.docs) { try { await deleteDoc(d.ref); } catch (e) {} }
