@@ -29,6 +29,7 @@ because there isn't one yet. See "What's blocked" below.
 | Online (`js/online.js`, `firestore.rules`) | Written, **unverified against a real project**. |
 | Security-rules tests | Written, **could not be run** — see below. |
 | 2026-10-16 sweep | Live on GitHub Pages. Scoring checked exhaustively against an independent reference (`test/exhaustive.test.js`): no scoring bugs. Rules tests now RUN on Java 21 (59/59; one test was wrong, fixed). Fixed: keyboard Enter/Space on a card, stale queue entries, heartbeat after game end, host cleanup of `private` docs. See `CLAUDE.md`. |
+| 2026-10-17 fix | Online Quit no longer uses the browser `confirm()`: in-page dialog `appConfirm()` in `js/app.js` (`.dialog-back`/`.dialog` CSS in `index.html`, reuses `.panel` + `.btn`). Cancel/Escape/backdrop stay, OK/Enter resign. Verified by phone-view with a stubbed `Online` (all five paths). |
 | Deployment | Not done. Not pushed anywhere. |
 | Simulated-hand statistics | Deliberately not started. |
 

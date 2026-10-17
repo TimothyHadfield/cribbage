@@ -117,9 +117,43 @@
     setStatus("");
   });
 
+  /**
+   * In-page stand-in for the browser's confirm box. Resolves true for OK /
+   * Enter, false for Cancel / Escape / a tap outside the box.
+   */
+  function appConfirm(message, opts) {
+    const okText = (opts && opts.okText) || "OK";
+    return new Promise((resolve) => {
+      const back = UI.el("div", "dialog-back");
+      const box = UI.el("div", "panel dialog");
+      box.setAttribute("role", "dialog");
+      box.setAttribute("aria-modal", "true");
+      box.appendChild(UI.el("p", "dialog-msg", message));
+      const row = UI.el("div", "actions dialog-actions");
+      const done = (answer) => {
+        document.removeEventListener("keydown", onKey, true);
+        back.remove();
+        resolve(answer);
+      };
+      const onKey = (e) => {
+        if (e.key === "Escape") { e.preventDefault(); done(false); }
+        else if (e.key === "Enter") { e.preventDefault(); done(true); }
+      };
+      row.appendChild(UI.button("Cancel", "ghost", () => done(false)));
+      const ok = UI.button(okText, "primary", () => done(true));
+      row.appendChild(ok);
+      box.appendChild(row);
+      back.appendChild(box);
+      back.addEventListener("click", (e) => { if (e.target === back) done(false); });
+      document.addEventListener("keydown", onKey, true);
+      document.body.appendChild(back);
+      ok.focus();
+    });
+  }
+
   $("btn-quit").addEventListener("click", async () => {
     if (current && current.mode === "online" && current.pub.winner === null) {
-      if (!confirm("Leave the game? Your opponent will be told you resigned.")) return;
+      if (!(await appConfirm("Leave the game? Your opponent will be told you resigned."))) return;
     }
     await leaveGame();
   });
@@ -415,5 +449,5 @@
     }
   }
 
-  root.App = { showScreen, setStatus, get current() { return current; } };
+  root.App = { showScreen, setStatus, confirm: appConfirm, get current() { return current; } };
 })(typeof self !== "undefined" ? self : this);
