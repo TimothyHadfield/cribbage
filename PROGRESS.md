@@ -1,115 +1,67 @@
-# Progress
+# Cribbage — progress
 
-Running notes for whoever picks this up next — including me. Read this before
-changing anything; `README.md` explains how the code works, this explains where
-it stands and why.
+## START HERE
+Last updated 2026-10-17.
+Read order: this file → [CLAUDE.md](CLAUDE.md) (file map, run/test/deploy) → [README.md](README.md) (design, online setup steps) → [chat.md](chat.md) (session log). The full pre-October notes are archived verbatim in [docs/archive/PROGRESS-2026-08-10.md](docs/archive/PROGRESS-2026-08-10.md).
 
-_Last updated: 2026-08-10_
+Live: https://timothyhadfield.github.io/cribbage/ · Repo: `TimothyHadfield/cribbage` (public) · Card on the Board & Card Games hub: yes.
 
----
+## Goal right now
+Single-player cribbage vs the computer is **finished and live**. The only open goal is **online play**, which is written and rules-tested but **switched off** (`js/firebase-config.js` exports `null`) until Tim creates/approves a free (Spark) Firebase project. Nothing else is waiting.
 
-## Where it stands
-
-**Playing the computer works end to end and is finished.** A full game to 121
-has been played through in a real browser (headless Chrome, driving the actual
-DOM) with no console errors — deal, discard, cut, pegging with gos and 31s, the
-show in the right order, the deal alternating, and the game stopping dead on
-121 mid-show with the crib uncounted.
-
-**Online play is written but has never connected to a live Firebase project**,
-because there isn't one yet. See "What's blocked" below.
-
-| Piece | State |
+## Status
+| Piece | State (checked 2026-10-17) |
 |---|---|
-| Scoring (`js/score.js`) | Done. 81 assertions. |
-| Engine (`js/engine.js`) | Done. 95 assertions, incl. 300 random full games. |
-| AI (`js/ai.js`, `js/crib-ev.js`) | Done. 71 assertions + a 900-game tournament. |
-| UI (`index.html`, `js/ui.js`, `js/app.js`) | Done, verified in a browser. |
-| vs computer (`js/local.js`) | Done. |
-| Online (`js/online.js`, `firestore.rules`) | Written, **unverified against a real project**. |
-| Security-rules tests | Written, **could not be run** — see below. |
-| 2026-10-16 sweep | Live on GitHub Pages. Scoring checked exhaustively against an independent reference (`test/exhaustive.test.js`): no scoring bugs. Rules tests now RUN on Java 21 (59/59; one test was wrong, fixed). Fixed: keyboard Enter/Space on a card, stale queue entries, heartbeat after game end, host cleanup of `private` docs. See `CLAUDE.md`. |
-| 2026-10-17 fix | Online Quit no longer uses the browser `confirm()`: in-page dialog `appConfirm()` in `js/app.js` (`.dialog-back`/`.dialog` CSS in `index.html`, reuses `.panel` + `.btn`). Cancel/Escape/backdrop stay, OK/Enter resign. Verified by phone-view with a stubbed `Online` (all five paths). |
-| Deployment | Not done. Not pushed anywhere. |
-| Simulated-hand statistics | Deliberately not started. |
+| Live site | **Live** on GitHub Pages, serving `2277252` (index.html, js/app.js, js/online.js, js/firebase-config.js byte-identical to HEAD). |
+| Scoring (`js/score.js`) | Done. 81 assertions pass. Exhaustive test vs an independent reference: no scoring bugs. |
+| Engine (`js/engine.js`) | Done. 95 assertions pass (incl. 300 random full games). |
+| AI (`js/ai.js`, `js/crib-ev.js`) | Done. 71 assertions pass (+ 900-game tournament). |
+| Exhaustive test (`test/exhaustive.test.js`) | **43/43 pass**, re-run 2026-10-17 (~6 min): every deal, every pegging sequence, 20,000 refereed hands. |
+| UI / vs computer | Done. Full game to 121 driven headlessly in WebKit at 390px on 2026-10-16: 0 console errors, no overflow. |
+| Online (`js/online.js`, `firestore.rules`) | Written. **Off**: `FIREBASE_CONFIG = null`, so the SDK is never loaded and no backend is contacted. Never run against a real project. |
+| Rules tests (`test/rules.test.js`) | **59/59 pass** in the local emulator (Java 21.0.12, firebase-tools 15), re-run 2026-10-17. |
+| Speed (Lighthouse mobile, 2026-10-16) | Perf 99, A11y 100, page weight 40 KiB (Firebase SDK now lazy-loaded). |
+| Simulated-hand statistics | Deliberately not started (comes after online play). |
 
-## What's blocked, and on whom
+## Authorized next steps
+- 2026-10-17, Tim: "any fixes or improvements you feel confident about go ahead and do, pretty much always. You don't have to ask me." Covers clear fixes, e.g. the two small known issues under Traps and the two rules hardenings below (rules changes need the emulator tests to pass first).
+- **Not authorized / Tim only:** creating the Firebase project. Once he has, the order is: fill in `js/firebase-config.js` (README → "Setting up online play"), add `timothyhadfield.github.io` to Authorized domains, deploy rules, then the two-browser check (two searchers pair exactly once, room code works, neither `private/{uid}` readable by the other, host reload resumes).
+- Before switching online on (from the 2026-10-16 Firebase audit, still open): pin queue `createdAt == request.time` in the create rule (blocks the 1970-date jam of the 10-oldest window); client timeout for "claimed but no matchId after ~15 s" (someone claims you and walks away). Optional: `keys().hasOnly([...])` on create rules, App Check.
 
-**1. Online play needs a Firebase project that only you can create.**
-`js/firebase-config.js` is deliberately `null`, which makes `Online.ready`
-false and the menu say so rather than failing at a network call. The six setup
-steps are in README.md → "Setting up online play". Nothing else is waiting on
-anything.
+## Standing instructions (Tim's words)
+- "any fixes or improvements you feel confident about go ahead and do, pretty much always. You don't have to ask me." (2026-10-17)
+- No other quotes from Tim are recorded in this project's files. Global rules apply ($0 / Spark plan only; Tim decides visuals and wording).
 
-**2. The security-rules tests cannot run on this machine.** The Firestore
-emulator exits immediately and silently with code `-1`. This is *not* a problem
-with `firestore.rules` or the test — the identical failure happens in the
-sibling Secret Hitler project, which has run these tests before. It looks like
-the known incompatibility between the bundled emulator jar and **Java 21**
-(installed here: 21.0.5). Try a JDK 17 `JAVA_HOME`, or
-`firebase setup:emulators:firestore` for a newer jar. Until then
-`test/rules.test.js` is 60-odd unexecuted assertions.
+## Traps
+- **Firestore rejects arrays of arrays**: the show breakdown travels as `showItemsJson`; per-player lists are `pegPlayed0/1`.
+- **Matchmaking avoids a composite index on purpose**: one `orderBy`, `claimedBy` filtered client-side.
+- **Keep the Firebase SDK import lazy** (`online.js`, dynamic import only when config is set), or every visit downloads ~245 KB.
+- **Rules forbid listing `matches/*/private`**, even for the host; cleanup deletes those docs by id.
+- **Rules tests need Java 21+** (firebase-tools 15 refuses 17). Run `cd test && npm ci && npm test`.
+- **`js/crib-ev.js` is generated** by `tools/build-crib-ev.js`; don't hand-edit.
+- **No test account** (anonymous sign-in). `.claude/test/` is git-ignored.
+- **Known small issues, not fixed** (judgment calls from the sweep): after playing a card by keyboard, focus jumps to the page top (hand is redrawn); the log can say "Name: go" for a player with no cards left.
+- A worktree `.claude/worktrees/fix-1017` (branch `fix-1017`, created 2026-10-17 02:47) existed with uncommitted edits to `index.html` and `js/app.js` when this file was refreshed; another session's work, left alone.
 
-That matters more than it sounds: with no server and anonymous sign-in, those
-rules are the entire security boundary. **Run them before pointing this at a
-real project.**
+## Decisions
+- Host-authoritative online play; the host can see your cards. Accepted: Cloud Functions need the paid plan, the project stays on Spark.
+- Anonymous auth: nobody needs an account to play one game. Account linking later, optional.
+- Crib EV table is sampled with a simplified opponent model; see `tools/build-crib-ev.js` header before "improving" it.
+- Cards are integers 0-51 (AI speed, flat Firestore arrays).
+- `handValue` duplicates `scoreHand` on purpose (fast vs itemised); tests cross-check them.
+- Log lines use "Name: thing" form, because one player is "You".
+- "Go" is automatic, not a button.
+- Two lanes instead of a peg-hole board: reads better on a phone.
 
-## Decisions worth not relitigating
+## NOT verified
+- Online play against a real Firebase project (none exists). Online fixes from 2026-10-16 are checked only by emulator rules tests and reasoning.
+- Real iPhone Safari (only WebKit via phone-view).
+- Live site not opened in a browser on 2026-10-17 (checked by curl + byte comparison only).
 
-- **Host-authoritative, and the host can see your cards.** Accepted knowingly.
-  Cloud Functions need the paid plan; the project stays on Spark. Documented in
-  the README rather than hidden. The engine is kept pure specifically so a real
-  referee can be dropped in later.
-- **Anonymous auth.** Nobody should have to make an account to play one game.
-  Account linking is a later, optional addition — the data model doesn't
-  prevent it.
-- **The crib table is sampled, not exact,** with a simplified opponent model
-  (they keep their best four). This slightly overvalues the enemy crib and
-  undervalues your own, symmetrically, by a fraction of a point. Modelling it
-  properly needs the table to model itself. See the header of
-  `tools/build-crib-ev.js` before "improving" it.
-- **Cards are integers 0-51, not objects.** The AI evaluates hundreds of
-  thousands of hands per decision, and Firestore stores flat number arrays
-  happily.
-- **`handValue` duplicates `scoreHand`.** Intentional: one is the readable
-  itemised version for the UI, one is the allocation-free version for the AI's
-  hot loop. `test/score.test.js` cross-checks them over 20,000 random deals so
-  they cannot drift apart silently.
-- **Log lines are all "Name: thing" form.** Because one player is usually
-  called "You", and third-person prose produces "You cuts the nine".
-
-## Gotchas discovered the hard way
-
-- **Firestore rejects arrays containing arrays.** The scoring breakdown is
-  exactly that, so `js/online.js` ships it as `showItemsJson` and rebuilds it
-  on arrival. Per-player lists are `pegPlayed0` / `pegPlayed1` for the same
-  reason.
-- **The matchmaking query deliberately avoids a composite index.** It uses one
-  `orderBy` and filters `claimedBy` client-side. Adding `where("claimedBy","==",null)`
-  would work but silently require an index nobody remembers to create.
-- **"Go" is automatic, not a button.** A player with no legal card has no
-  decision to make, and a button there is one more way for an online game to
-  stall waiting on someone.
-
-## Next, in order
-
-1. Create the Firebase project; fill in `js/firebase-config.js`; deploy the rules.
-2. Fix the emulator (Java 17) and actually run `test/rules.test.js`.
-3. Two browsers, one normal and one private: confirm two searchers pair exactly
-   once and neither is orphaned in the queue; confirm a room code works;
-   confirm in the Firestore console that neither `private/{uid}` document is
-   readable by the other player; reload the host mid-game and confirm it resumes.
-4. Deploy: own repo `cribbage`, Pages from `main` / root, then add a card to
-   `../Hub/index.html` and a row to `../Hub/README.md`.
-5. Only then: simulated-hand statistics. `js/engine.js` and `js/ai.js` are pure
-   and Node-requireable, and `test/ai.test.js` already contains a headless
-   self-play driver that a simulation harness can start from.
-
-## Ideas parked
-
-- Account linking, so a returning player keeps a record.
-- Muggins (claiming points your opponent missed) — fun, but it needs the show
-  to become interactive rather than a Continue button.
-- Three- and four-player cribbage. The engine assumes two seats throughout.
-- A traditional peg-holes board instead of the two lanes. The lanes read better
-  on a phone, which is where this will mostly be played.
+## Rejected / parked
+- ~~Account linking~~ — parked: not needed for one-off games; data model allows it later.
+- ~~Muggins~~ — parked: needs an interactive show instead of a Continue button.
+- ~~Three- and four-player cribbage~~ — parked: engine assumes two seats throughout.
+- ~~Traditional peg-hole board~~ — parked: lanes read better on a phone.
+- ~~Cloud Functions referee~~ — rejected: needs the paid Blaze plan ($0 rule).
+- ~~Simulated-hand statistics~~ — parked until online play is done; `test/ai.test.js` has a self-play driver to start from.

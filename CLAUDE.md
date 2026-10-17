@@ -35,7 +35,7 @@ Push to `main`; GitHub Pages rebuilds. `python ~/.claude/hooks/live-check.py <re
 - Anonymous auth: "Nobody should have to make an account to play one game."
 - `handValue` duplicating `scoreHand` is intentional. Log lines use the "Name: thing" form because one player is called "You".
 - "Go" is automatic, not a button.
-- Don't create the Firebase project: only Tim can (it's step 1 of PROGRESS.md "Next").
+- Don't create the Firebase project: only Tim can (see PROGRESS.md "Authorized next steps").
 
 ## Traps
 - Firestore rejects arrays of arrays: the show breakdown travels as `showItemsJson`; per-player lists are `pegPlayed0/1`.
