@@ -41,7 +41,7 @@ Single-player cribbage vs the computer is **finished and live**. The only open g
 - **`js/crib-ev.js` is generated** by `tools/build-crib-ev.js`; don't hand-edit.
 - **No test account** (anonymous sign-in). `.claude/test/` is git-ignored.
 - **Known small issues, not fixed** (judgment calls from the sweep): after playing a card by keyboard, focus jumps to the page top (hand is redrawn); the log can say "Name: go" for a player with no cards left.
-- A worktree `.claude/worktrees/fix-1017` (branch `fix-1017`, created 2026-10-17 02:47) existed with uncommitted edits to `index.html` and `js/app.js` when this file was refreshed; another session's work, left alone.
+- 2026-10-17 fix wave: online Quit's browser `confirm()` replaced by in-page `appConfirm()` (js/app.js, overlay CSS in index.html; commit f55c80b, live). Use `appConfirm`, never browser dialogs. The fix-1017 worktree is merged and removed (branch kept).
 
 ## Decisions
 - Host-authoritative online play; the host can see your cards. Accepted: Cloud Functions need the paid plan, the project stays on Spark.
