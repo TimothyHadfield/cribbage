@@ -13,6 +13,7 @@ Single-player cribbage vs the computer is **finished and live**. The only open g
 | Piece | State (checked 2026-10-17) |
 |---|---|
 | Live site | **Live** on GitHub Pages, serving `2277252` (index.html, js/app.js, js/online.js, js/firebase-config.js byte-identical to HEAD). |
+| Site icon (2026-10-17) | `icon.svg` (cream heart card over a blue card, dark background) + `apple-touch-icon.png` 180 px, linked in `index.html`; replaced the emoji data-URI favicon. |
 | Scoring (`js/score.js`) | Done. 81 assertions pass. Exhaustive test vs an independent reference: no scoring bugs. |
 | Engine (`js/engine.js`) | Done. 95 assertions pass (incl. 300 random full games). |
 | AI (`js/ai.js`, `js/crib-ev.js`) | Done. 71 assertions pass (+ 900-game tournament). |
