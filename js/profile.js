@@ -6,7 +6,7 @@
 (function (G) {
 'use strict';
 if (G.Profile && G.Profile.version) return;
-const VERSION = '1.0.1';
+const VERSION = '1.1.0';
 const ID_KEY = 'profile:me';              // name + avatar, shared by all games on this site
 const gameKey = g => 'profile:' + g;      // one stats record per game
 const START = 1200, K_NEW = 40, K = 24, NEW_GAMES = 10, FLOOR = 100;
@@ -262,20 +262,25 @@ function banner(a, more) {
 
 // ---------- UI: My stats panel ----------
 let ov = null, tab = 'levels', editing = false, lastFocus = null;
+/** Draw columns: init's draws true/false wins; by default shown only once a draw has been recorded
+ *  (so games that can't draw, like Clue, never show an empty "Drawn" column). */
+const showDraws = () => (cfg.draws === true || cfg.draws === false ? cfg.draws : st.draws > 0);
 const pct = (w, d, g) => (g ? Math.round(100 * (w + d / 2) / g) : null);
 /** red -> green for a 0..100 score (tight range: 30% red, 70% green). */
 function scale(p) { if (p == null) return 'var(--muted,#969db4)'; const t = Math.max(0, Math.min(1, (p - 30) / 40)); const h = Math.round(4 + t * 128); return `hsl(${h} 62% 62%)`; }
 function levelsHTML() {
+  const D = showDraws();
   const rows = cfg.levels.map(l => {
     const r = st.byLevel[l.id] || blankRec(), p = pct(r.w, r.d, r.g);
-    return `<tr><td><b>${esc(l.name)}</b><small>${Math.round(l.rating)}</small></td><td>${r.w}</td><td>${r.d}</td><td>${r.l}</td><td style="color:${scale(p)}">${p == null ? '–' : p + '%'}</td></tr>`;
+    return `<tr><td><b>${esc(l.name)}</b><small>${Math.round(l.rating)}</small></td><td>${r.w}</td>${D ? `<td>${r.d}</td>` : ''}<td>${r.l}</td><td style="color:${scale(p)}">${p == null ? '–' : p + '%'}</td></tr>`;
   }).join('');
   const other = Object.keys(st.byMode).filter(m => !(cfg.modes[m] && cfg.modes[m].hide) && m !== 'computer').map(m => {
     const r = st.byMode[m];
     const nm = (cfg.modes[m] && cfg.modes[m].name) || m;
-    return `<tr><td><b>${esc(nm)}</b></td><td colspan="4">${r.g} game${r.g === 1 ? '' : 's'}${r.w + r.l + r.d ? ` · ${r.w}–${r.d}–${r.l}` : ''}</td></tr>`;
+    return `<tr><td><b>${esc(nm)}</b></td><td colspan="${D ? 4 : 3}">${r.g} game${r.g === 1 ? '' : 's'}${r.w + r.l + r.d ? ` · ${D ? `${r.w}–${r.d}–${r.l}` : `${r.w}–${r.l}`}` : ''}</td></tr>`;
   }).join('');
-  return `<h4>Vs the computer</h4>${cfg.levels.length ? `<table class="pf-tbl"><thead><tr><th>Level</th><th>W</th><th>D</th><th>L</th><th>Score</th></tr></thead><tbody>${rows}</tbody></table>` : ''}` +
+  // a game with no computer opponent (e.g. Wavelength) gets no empty "Vs the computer" heading
+  return (cfg.levels.length ? `<h4>Vs the computer</h4><table class="pf-tbl"><thead><tr><th>Level</th><th>W</th>${D ? '<th>D</th>' : ''}<th>L</th><th>Score</th></tr></thead><tbody>${rows}</tbody></table>` : '') +
     (other ? `<h4>Other games</h4><table class="pf-tbl pf-modes"><tbody>${other}</tbody></table>` : '');
 }
 function awardsHTML() {
@@ -321,7 +326,7 @@ function panelHTML() {
       <button type="button" class="pf-x" data-pf="close" aria-label="Close">${icons.close}</button>
     </div>
     ${editing ? editHTML() : `
-    <div class="pf-nums"><div><b>${st.games}</b><small>Games</small></div><div><b>${st.wins}</b><small>Won</small></div><div><b>${st.losses}</b><small>Lost</small></div><div><b>${st.draws}</b><small>Drawn</small></div><div><b style="color:${scale(pct(st.wins, st.draws, shown))}">${shown ? pct(st.wins, st.draws, shown) + '%' : '–'}</b><small>Score</small></div><div><b>${st.streak}</b><small>Streak${st.bestStreak ? ' · ' + st.bestStreak : ''}</small></div></div>
+    <div class="pf-nums${showDraws() ? '' : ' pf-nums5'}"><div><b>${st.games}</b><small>Games</small></div><div><b>${st.wins}</b><small>Won</small></div><div><b>${st.losses}</b><small>Lost</small></div>${showDraws() ? `<div><b>${st.draws}</b><small>Drawn</small></div>` : ''}<div><b style="color:${scale(pct(st.wins, st.draws, shown))}">${shown ? pct(st.wins, st.draws, shown) + '%' : '–'}</b><small>Score</small></div><div><b>${st.streak}</b><small>Streak${st.bestStreak ? ' · ' + st.bestStreak : ''}</small></div></div>
     <div class="pf-tabs" role="tablist">${tabs.map(([k, t]) => `<button type="button" role="tab" data-tab="${k}" aria-selected="${tab === k}">${t}</button>`).join('')}</div>
     <div class="pf-body" data-show="${tab}">
       <section class="pf-sec" data-sec="levels">${levelsHTML()}</section>
@@ -419,6 +424,7 @@ function init(o) {
     achievements: Array.isArray(o.achievements) ? o.achievements.filter(a => a && a.id && typeof a.test === 'function') : [],
     modes: isObj(o.modes) ? o.modes : {},
     daily: o.daily ? (isObj(o.daily) ? o.daily : {}) : null,
+    draws: o.draws === true || o.draws === false ? o.draws : 'auto',
     toast: o.toast !== false,
     onUnlock: o.onUnlock,
     now: typeof o.now === 'function' ? o.now : () => new Date(),
@@ -444,7 +450,7 @@ const Profile = {
   avatars: AVATAR_IDS.slice(),
   levelRating: id => { const l = levelOf(id); return l ? l.rating : null; },
   // pure helpers (tested)
-  _: { expected, eloStep, cleanStats, cleanMe, hash, mulberry, addDays, dayOf, START },
+  _: { expected, eloStep, cleanStats, cleanMe, hash, mulberry, addDays, dayOf, START, panelHTML },
 };
 G.Profile = Profile;
 })(typeof window !== 'undefined' ? window : globalThis);

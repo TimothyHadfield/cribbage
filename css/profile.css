@@ -47,6 +47,7 @@
 .pf-nums > div { display: flex; flex-direction: column; min-width: 0; }
 .pf-nums b { font-size: 20px; font-variant-numeric: tabular-nums; }
 .pf-nums small { color: var(--pf-muted); font-size: 11.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pf-nums5 { grid-template-columns: repeat(5, 1fr); }
 .pf-nums2 { grid-template-columns: repeat(2, 1fr); padding: 6px 0; }
 
 /* tabs (phone) */
