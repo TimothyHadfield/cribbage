@@ -198,6 +198,23 @@
       history = [];
     },
 
+    /** Everything needed to carry on after a reload (plain JSON). */
+    snapshot() {
+      if (!state) return null;
+      return { v: 1, state, level, seed, history, undos };
+    },
+    /** Pick a saved game back up. Returns { ok }. */
+    resume(snap) {
+      if (!snap || snap.v !== 1 || !snap.state || snap.state.winner !== null) return { ok: false };
+      clearTimeout(timer);
+      state = snap.state; level = snap.level || "hard"; seed = snap.seed >>> 0;
+      history = Array.isArray(snap.history) ? snap.history : []; undos = snap.undos | 0;
+      thinking = false;
+      publish();
+      think();
+      return { ok: true };
+    },
+
     refresh: publish,
     /** Tests: get every published view without a DOM. Returns an unsubscribe. */
     listen(fn) { listeners.push(fn); return () => { listeners = listeners.filter((f) => f !== fn); }; },

@@ -8,8 +8,8 @@
 <meta name="theme-color" content="#0f1117">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<link rel="stylesheet" href="css/table.css?v=20261027c">
-<link rel="stylesheet" href="css/profile.css?v=20261027c">
+<link rel="stylesheet" href="css/table.css?v=20261027f">
+<link rel="stylesheet" href="css/profile.css?v=20261027f">
 <style>
   /* Palette lifted from the Board & Card Games hub so this reads as a sibling
      of the other projects rather than a stray page. */
@@ -96,6 +96,8 @@
   .seg button[aria-pressed="true"] .lvl-note { color: #9dc3ff; }
   .menu-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 14px; }
   .menu-actions .btn.primary { grid-column: 1 / -1; padding: 13px; font-size: 17px; }
+  .menu-actions .btn.resume { grid-column: 1 / -1; border-color: var(--accent); color: var(--accent); }
+  .menu-actions .btn[hidden] { display: none; }
   .menu-links { display: flex; justify-content: center; gap: 4px; margin-top: 12px; flex-wrap: wrap; }
   .menu-links .btn { padding: 7px 10px; font-size: 14px; background: transparent; border-color: transparent; color: var(--muted); }
   .menu-links .btn:hover { color: var(--text); }
@@ -154,6 +156,7 @@
   .count-head { display: flex; align-items: baseline; gap: 8px; }
   .count-big { font-size: 30px; font-weight: 800; font-variant-numeric: tabular-nums; line-height: 1; color: #fff; text-shadow: 0 1px 2px rgba(0,0,0,.5); }
   .count-cap { font-size: 10px; color: #bfe0cc; letter-spacing: .1em; text-transform: uppercase; font-weight: 700; }
+  .peg-call { flex: 1; min-width: 0; font-size: 13px; font-weight: 700; color: var(--accent-warm); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-shadow: 0 1px 2px rgba(0,0,0,.5); }
   .seq { display: flex; margin-top: 6px; min-height: calc(var(--card-w) * 88 / 63); --card-w: 46px; }
   .seq .tbl-card { margin-right: calc(var(--card-w) * -0.42); box-shadow: -2px 1px 3px rgba(0,0,0,.25); }
   .seq .tbl-card:last-child { margin-right: 0; }
@@ -161,12 +164,12 @@
   .seq .gap { width: 14px; flex: none; }
 
   /* ---- the count (show) ---- */
-  .count-view { flex: 1; min-height: 0; display: flex; flex-direction: column; margin-top: 6px; --card-w: 50px; }
+  .count-view { flex: 1; min-height: 0; display: flex; flex-direction: column; margin-top: 6px; --card-w: 60px; }
   .counted { display: flex; align-items: center; gap: 5px; flex: none; }
   .counted .plus { color: #cfe3d6; font-weight: 700; margin: 0 2px; }
   .counted .tbl-card { transition: transform .18s, box-shadow .18s; }
   .counted .tbl-card.hl { transform: translateY(-6px); box-shadow: 0 0 0 2px var(--accent-warm), 0 6px 12px rgba(0,0,0,.4); }
-  .bd { flex: 1; min-height: 0; overflow-y: auto; margin-top: 8px; background: rgba(8,20,14,.55); border-radius: 10px; padding: 6px 10px; font-size: 13.5px; }
+  .bd { flex: 0 1 auto; min-height: 0; overflow-y: auto; margin-top: 8px; background: rgba(8,20,14,.55); border-radius: 10px; padding: 6px 10px; font-size: 13.5px; }
   .bd-item { display: flex; align-items: center; gap: 8px; padding: 2px 0; transition: opacity .2s; }
   .bd-item.wait { opacity: .28; }
   .bd-item .p { font-variant-numeric: tabular-nums; color: var(--good); font-weight: 800; min-width: 24px; }
@@ -196,7 +199,11 @@
   #your-hand .tbl-card { cursor: default; }
   #your-hand .tbl-card.playable { cursor: pointer; }
   #your-hand .tbl-card.dim { filter: brightness(.55); }
-  #your-hand .tbl-card.played { filter: brightness(.6) saturate(.6); }
+  /* played cards shrink and fade, so they never look like "can't play this" */
+  #your-hand .tbl-card.played { scale: .84; opacity: .42; filter: grayscale(.7); }
+  /* during the count your cards are shown above; the hand row would only repeat them */
+  .felt[data-phase="show"] .hand-row { display: none; }
+  .bd.ph { flex: none; }
 
   /* cards: index corner only on small cards (pips get too fine) */
   .tbl-card.mini .tbl-pips, .tbl-card.mini .tbl-pip, .tbl-card.mini .tbl-idx.b { display: none; }
@@ -276,6 +283,7 @@
     .hand-row { --card-w: 56px; }
     .opp-row .who-box { width: 78px; }
     .mid { --card-w: 40px; }
+    .count-view { --card-w: 48px; }
   }
   @media (max-height: 600px) and (max-width: 899px) {
     .hand-row { --card-w: 54px; }
@@ -291,7 +299,7 @@
   @media (max-height: 500px) and (min-width: 560px) {
     .game-grid { flex-direction: row; }
     .main-col { flex-direction: row; }
-    .board-wrap { width: 36%; border-bottom: 0; border-right: 1px solid #1a0f06; display: flex; flex-direction: column; justify-content: center; }
+    .board-wrap { width: 38%; border-bottom: 0; border-right: 1px solid #1a0f06; display: flex; flex-direction: column; justify-content: center; }
     .pegboard svg { max-height: none; }
     .hand-row { --card-w: 46px; }
     .prompt { padding: 5px 10px; min-height: 0; }
@@ -302,6 +310,12 @@
     .mid { --card-w: 36px; margin-top: 2px; }
     .seq { --card-w: 30px; }
     .opp-row { --card-w: 24px; }
+    .count-view { --card-w: 46px; }
+    .scores { font-size: 12px; gap: 4px; }
+    .sc { gap: 4px; }
+    .sc .pts { font-size: 16px; }
+    .sc .gain { min-width: 0; }
+    .prompt:has(.hint) .p-sub { display: none; }   /* the hint says more than the sub-line */
     .opp-cards { min-height: 34px; }
     .felt { padding: 4px 10px; }
   }
@@ -322,7 +336,7 @@
     .mid { --card-w: 84px; gap: 22px; margin-top: 12px; }
     .seq { --card-w: 72px; }
     .count-big { font-size: 40px; }
-    .count-view { --card-w: 76px; }
+    .count-view { --card-w: 100px; }
     .bd { font-size: 15px; }
     .hand-row { --card-w: 104px; max-width: 760px; width: 100%; margin: 6px auto 0; }
     .prompt-row { max-width: 760px; width: 100%; margin-left: auto; margin-right: auto; }
@@ -335,7 +349,7 @@
     .hand-row { --card-w: 78px; }
     .mid { --card-w: 60px; }
     .seq { --card-w: 52px; }
-    .count-view { --card-w: 56px; }
+    .count-view { --card-w: 84px; }
     .pegboard svg { max-height: 26vh; }
   }
 </style>
@@ -355,6 +369,7 @@
       <button data-level="hard" aria-pressed="true">Hard<span class="lvl-note">weighs the crib too</span></button>
     </div>
     <div class="menu-actions">
+      <button class="btn resume" id="btn-resume" hidden>Resume game</button>
       <button class="btn primary" id="btn-vs-cpu">Deal</button>
       <button class="btn" id="btn-daily">Daily game</button>
       <button class="btn pf-open" id="btn-stats-menu">My stats</button>
@@ -403,7 +418,7 @@
           <div class="slot"><span class="slot-lab">Crib</span><div class="crib-stack" id="crib-slot"></div></div>
           <div class="slot"><span class="slot-lab">Starter</span><div id="starter-slot"></div></div>
           <div class="count-col">
-            <div class="count-head"><span class="count-big" id="count-big">—</span><span class="count-cap">Count</span></div>
+            <div class="count-head"><span class="count-big" id="count-big">—</span><span class="count-cap">Count</span><span class="peg-call" id="peg-call" aria-live="polite"></span></div>
             <div class="seq" id="seq"></div>
           </div>
         </div>
@@ -469,18 +484,18 @@
 </template>
 
 <!-- Load order matters: each file uses the one above it. All plain scripts, no build step. -->
-<script src="js/fx.js?v=20261027c"></script>
-<script src="js/table.js?v=20261027c"></script>
-<script src="js/profile.js?v=20261027c"></script>
-<script src="js/score.js?v=20261027c"></script>
-<script src="js/crib-ev.js?v=20261027c"></script>
-<script src="js/engine.js?v=20261027c"></script>
-<script src="js/ai.js?v=20261027c"></script>
-<script src="js/local.js?v=20261027c"></script>
-<script src="js/board.js?v=20261027c"></script>
-<script src="js/profile-crib.js?v=20261027c"></script>
-<script src="js/ui.js?v=20261027c"></script>
-<script src="js/app.js?v=20261027c"></script>
+<script src="js/fx.js?v=20261027f"></script>
+<script src="js/table.js?v=20261027f"></script>
+<script src="js/profile.js?v=20261027f"></script>
+<script src="js/score.js?v=20261027f"></script>
+<script src="js/crib-ev.js?v=20261027f"></script>
+<script src="js/engine.js?v=20261027f"></script>
+<script src="js/ai.js?v=20261027f"></script>
+<script src="js/local.js?v=20261027f"></script>
+<script src="js/board.js?v=20261027f"></script>
+<script src="js/profile-crib.js?v=20261027f"></script>
+<script src="js/ui.js?v=20261027f"></script>
+<script src="js/app.js?v=20261027f"></script>
 
 </body>
 </html>

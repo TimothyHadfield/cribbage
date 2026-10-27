@@ -367,6 +367,7 @@
       revealed0: revealed && isRevealed(s, 0) ? s.dealt[0].slice() : [],
       revealed1: revealed && isRevealed(s, 1) ? s.dealt[1].slice() : [],
       log: s.log.slice(-12),
+      logCount: s.log.length,   // lets a viewer tell which of those 12 lines are new
       winner: s.winner,
       skunk: s.skunk,
       target: TARGET,

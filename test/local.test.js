@@ -75,6 +75,21 @@ async function settle() { for (let i = 0; i < 60; i++) { await tick(3); if (!las
   Local.start({ level: "easy", seed: 7 });
   eq(Local._state().muggins, [false, false], "muggins is off unless asked for");
 
+  // ---- save + resume (a reload, or iOS dropping the tab) ----
+  Local.start({ level: "medium", seed: 4242 });
+  await settle();
+  Local.submit({ type: "discard", cards: last.priv.hand.slice(0, 2) });
+  await settle();
+  const saved = JSON.parse(JSON.stringify(Local.snapshot()));
+  const before = JSON.stringify(Local._state());
+  ok(saved && saved.history.length === 1, "the snapshot keeps the undo history");
+  Local.stop();
+  eq(Local.resume(saved).ok, true, "a saved game resumes");
+  eq(JSON.stringify(Local._state()), before, "the resumed game is exactly the saved one");
+  eq(last.canUndo, before.includes('"phase":"show"') ? false : true, "undo still works after resuming");
+  eq(Local.resume({ v: 1, state: Object.assign({}, saved.state, { winner: 0 }) }).ok, false, "a finished game doesn't resume");
+  Local.stop();
+
   // ---- a whole game to the end: undo is gone once it's over ----
   Local.start({ level: "easy", seed: 31337 });
   let showChecked = false;

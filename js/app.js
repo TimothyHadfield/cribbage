@@ -40,8 +40,10 @@
 
   const LEVEL_KEY = "cribbage.level.v1";
   const MUGGINS_KEY = "cribbage.muggins.v1";
+  const SAVE_KEY = "cribbage.save.v1";
   const lsGet = (k) => { try { return localStorage.getItem(k); } catch (e) { return null; } };
   const lsSet = (k, v) => { try { localStorage.setItem(k, v); } catch (e) {} };
+  const lsDel = (k) => { try { localStorage.removeItem(k); } catch (e) {} };
   let muggins = lsGet(MUGGINS_KEY) === "1";
 
   function showScreen(name) {
@@ -66,6 +68,7 @@
     $("btn-stats-menu").innerHTML = Profile.avatarSVG(Profile.avatar, 22) + "<span>My stats</span>";
     const done = Profile.daily.played();
     $("btn-daily").innerHTML = done ? 'Daily game <span class="daily-done">✓ played</span>' : "Daily game";
+    $("btn-resume").hidden = !readSave();
   }
   paintMe();
   $("btn-stats").addEventListener("click", () => Profile && Profile.openPanel());
@@ -84,18 +87,44 @@
     b.addEventListener("click", () => { level = b.dataset.level; lsSet(LEVEL_KEY, level); pressLevel(); });
   }
 
-  function newGame(opts) {
-    lastOpts = opts;
-    gameSeq++;
-    game = { id: gameSeq, daily: !!opts.daily, day: opts.day || null, hinted: false, recorded: false,
-             muggins: !!opts.muggins, bestHand: 0, reviews: [], seen: {} };
+  function enterGame(opts) {
     selected = []; hint = null; prev = null; current = null; claimVal = 0;
     gameTitle.textContent = opts.daily ? "Daily game" : "You vs the computer";
     gameSub.textContent = (opts.level[0].toUpperCase() + opts.level.slice(1)) + " computer" + (opts.muggins ? " · muggins" : "");
     gameSub.title = AI.describeLevel(opts.level);
     showScreen("game");
+  }
+
+  function newGame(opts) {
+    lastOpts = opts;
+    gameSeq++;
+    game = { id: gameSeq, daily: !!opts.daily, day: opts.day || null, hinted: false, recorded: false,
+             muggins: !!opts.muggins, bestHand: 0, reviews: [], seen: {} };
+    enterGame(opts);
     root.Local.start(opts);
   }
+
+  // ---- the game in progress survives a reload (or iOS dropping the tab) ----
+  function readSave() {
+    try { const s = JSON.parse(lsGet(SAVE_KEY) || "null"); return s && s.local && s.local.state && s.local.state.winner === null ? s : null; }
+    catch (e) { return null; }
+  }
+  function saveGame() {
+    if (!current || current.mode !== "local" || !game) return;
+    if (current.pub.winner !== null) { lsDel(SAVE_KEY); return; }
+    const snap = root.Local.snapshot();
+    if (snap) lsSet(SAVE_KEY, JSON.stringify({ local: snap, game, lastOpts }));
+  }
+  function resumeGame() {
+    const s = readSave();
+    if (!s) { lsDel(SAVE_KEY); paintMe(); return; }
+    lastOpts = s.lastOpts;
+    gameSeq++;
+    game = Object.assign({}, s.game, { id: gameSeq });
+    enterGame(lastOpts);
+    if (!root.Local.resume(s.local).ok) { lsDel(SAVE_KEY); leaveGame(); }
+  }
+  $("btn-resume").addEventListener("click", resumeGame);
 
   $("btn-vs-cpu").addEventListener("click", () => newGame({ level, muggins, yourName: "You", cpuName: "Computer" }));
 
@@ -238,6 +267,7 @@
 
   function leaveGame() {
     root.Local.stop();
+    lsDel(SAVE_KEY);
     if (fan && fan.disconnect) fan.disconnect();
     fan = null; current = null; prev = null; selected = []; hint = null;
     countToken++;
@@ -257,6 +287,7 @@
     // a new game's first view must not animate from the last game's
     if (prev && (prev.pub.handNumber > current.pub.handNumber)) prev = null;
     render();
+    saveGame();
   });
 
   function render() {
@@ -331,6 +362,15 @@
       seqBox.appendChild(n);
     });
     if (grew) fx("cardDeal", { vol: 0.8 });
+
+    // ---- what the last card scored ("Computer: fifteen for 2", "You: go"), on the table ----
+    const call = $("peg-call");
+    if (pub.phase !== "pegging" || newHand) call.textContent = "";
+    else if (p && (pub.logCount !== p.logCount || pub.pegSeq.length !== p.pegSeq.length)) {
+      const added = Math.min(pub.log.length, Math.max(0, (pub.logCount || 0) - (p.logCount || 0)));
+      const lines = pub.log.slice(pub.log.length - added).filter((e) => e.by != null && (e.points > 0 || / go$/.test(e.text)));
+      call.textContent = lines.map((e) => e.text).join(" · ");
+    }
 
     // ---- your cards ----
     renderHand(pub, priv, seat, newHand);
@@ -515,8 +555,8 @@
         UI.renderPrompt(promptBox, `Count ${what}`, "Miss any and the computer takes them.");
         const st = UI.el("div", "stepper");
         const val = UI.el("span", "val", String(claimVal));
-        const minus = UI.button("−", "", () => { claimVal = Math.max(0, claimVal - 1); val.textContent = String(claimVal); });
-        const plus = UI.button("+", "", () => { claimVal = Math.min(29, claimVal + 1); val.textContent = String(claimVal); });
+        const minus = repeatButton("−", () => { claimVal = Math.max(0, claimVal - 1); val.textContent = String(claimVal); });
+        const plus = repeatButton("+", () => { claimVal = Math.min(29, claimVal + 1); val.textContent = String(claimVal); });
         minus.setAttribute("aria-label", "One less"); plus.setAttribute("aria-label", "One more");
         st.appendChild(minus); st.appendChild(val); st.appendChild(plus);
         actionsBox.appendChild(st);
@@ -527,7 +567,7 @@
       } else {
         UI.renderPrompt(promptBox, `Counting ${what}`, order);
       }
-      if (fresh) { const ph = UI.el("div", "bd"); ph.appendChild(UI.el("div", "bd-none", "Count the cards above.")); countView.appendChild(ph); }
+      if (fresh) { const ph = UI.el("div", "bd ph"); ph.appendChild(UI.el("div", "bd-none", "Count the cards above.")); countView.appendChild(ph); }
       return;
     }
 
@@ -548,6 +588,23 @@
       if (doAnim) countItems(bd, pub.showItems, pub.showPoints);
       else if (pub.showPoints >= 12) fx("ding", { vol: 0.7 });
     }
+  }
+
+  /** A − / + button that keeps stepping while held (a 24 shouldn't take 24 taps). */
+  function repeatButton(label, step) {
+    const b = UI.el("button", "btn", label);
+    b.type = "button";
+    let t1 = null, t2 = null;
+    const stop = () => { clearTimeout(t1); clearInterval(t2); t1 = t2 = null; };
+    b.addEventListener("pointerdown", (e) => {
+      e.preventDefault();
+      stop(); step();
+      t1 = setTimeout(() => { t2 = setInterval(step, 90); }, 380);
+    });
+    for (const ev of ["pointerup", "pointerleave", "pointercancel"]) b.addEventListener(ev, stop);
+    b.addEventListener("click", (e) => { if (e.detail === 0) step(); });   // keyboard Enter/Space
+    b.addEventListener("contextmenu", (e) => e.preventDefault());
+    return b;
   }
 
   /** "Fifteen two, fifteen four…": light each item and its cards in turn, counting up. */
