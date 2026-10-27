@@ -1,0 +1,6 @@
+# Shared kit copies: keep byte-identical to Board and Card Games/_table, _fx, _profile
+js/table.js -text
+js/fx.js -text
+js/profile.js -text
+css/table.css -text
+css/profile.css -text
