@@ -17,7 +17,7 @@ Two-player cribbage to 121 against a computer opponent that actually plays well:
 - **Every count explained**: each hand and crib is broken down line by line (fifteens, pairs, runs, flushes, nobs).
 - **Score bars to 121** with the skunk line marked, plus a running log of every point scored.
 - **Built-in rules guide** on the menu for anyone learning the game.
-- **Online play (not switched on yet)**: matchmaking and private room codes are written and waiting on a Firebase project; see "Online play" below.
+- **Online play**: play a friend on their own phone with a 5-letter room code (shared `_online` kit, on since 2026-10-27).
 
 <p align="center">
   <img src="docs/screenshots/desktop-show.png" alt="Laptop view: counting a hand, with each fifteen listed" width="68%">
@@ -129,6 +129,10 @@ Difficulty is how much of that the opponent uses, not a handicap:
 | **Hard** | hand and crib | full risk model, plays for the win when it's in reach |
 
 ## Online play
+
+> **2026-10-27: this section describes the old, never-switched-on design.** Live online play
+> now uses the shared `_online` kit (`js/game-online.js` + `js/crib-online.js` + `js/net.js`,
+> Firestore `th-board-games`, friend rooms only). See PROGRESS.md.
 
 Matchmaking, room codes, and live play with no server at all.
 

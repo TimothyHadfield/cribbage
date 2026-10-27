@@ -45,6 +45,9 @@
   const lsSet = (k, v) => { try { localStorage.setItem(k, v); } catch (e) {} };
   const lsDel = (k) => { try { localStorage.removeItem(k); } catch (e) {} };
   let muggins = lsGet(MUGGINS_KEY) === "1";
+  const online = () => !!current && current.mode === "online";
+  /** Moves go to whichever transport drew the table: local.js (vs computer) or net.js (a friend online). */
+  const tx = () => (online() ? root.Net : root.Local);
 
   function showScreen(name) {
     for (const k of Object.keys(screens)) screens[k].classList.toggle("active", k === name);
@@ -136,6 +139,105 @@
     newGame({ level: "hard", muggins, yourName: "You", cpuName: "Computer", daily: true, day, seed: Profile.daily.seed(day, "deal") });
   }
   $("btn-daily").addEventListener("click", startDaily);
+
+  // ============================================== online with a friend ==
+  // A room with a short code (js/net.js + the shared kit). The sheet is the
+  // lobby; once the host starts, the game screen draws from net.js exactly as
+  // it does from local.js.
+  const NAME_KEY = "cribbage.netname.v1";
+  let netBusy = false, netMsg = "";
+  function netToast(text) {
+    let t = $("net-toast");
+    if (!t) { t = UI.el("div", "net-toast"); t.id = "net-toast"; t.setAttribute("role", "status"); document.body.appendChild(t); }
+    t.textContent = text; t.hidden = false;
+    clearTimeout(netToast.timer);
+    netToast.timer = setTimeout(() => { t.hidden = true; }, 3500);
+  }
+  function buildOnline(sheet) {
+    const body = UI.el("div", "sheet-body net");
+    const s = root.Net.snap;
+    if (s && s.status === "joining") {
+      body.appendChild(UI.el("p", "set-why", s.askingHost ? "Waiting for the host to let you in…" : `Joining ${s.code || ""}…`));
+      const row = UI.el("div", "net-row");
+      row.appendChild(UI.button("Cancel", "ghost", () => { root.Net.leave(); closeSheet(); }));
+      body.appendChild(row);
+    } else if (s && s.status === "lobby") {
+      body.appendChild(UI.el("h4", null, "Room code"));
+      body.appendChild(UI.el("div", "net-code", s.code));
+      body.appendChild(UI.el("p", "set-why", "Your friend opens this page, taps Play a friend online, and types the code."));
+      s.seats.forEach((q, i) => {
+        const row = UI.el("div", "set-row");
+        const who = q.kind === "computer" ? "Computer" : q.kind === "empty" ? "Open seat" : q.name + (i === s.mySeat ? " (you)" : "");
+        const lab = UI.el("span", "lab" + (q.kind === "empty" ? " muted" : ""), who);
+        row.appendChild(lab);
+        if (q.isHost) row.appendChild(UI.el("span", "set-why", "host"));
+        body.appendChild(row);
+      });
+      const row = UI.el("div", "net-row");
+      if (s.isHost) row.appendChild(UI.button("Start", "primary", async () => { const r = await root.Net.start(); if (!r.ok) netToast(r.message); }));
+      else row.appendChild(UI.el("span", "set-why grow", "Waiting for the host to start."));
+      row.appendChild(UI.button("Leave", "ghost", () => { root.Net.leave(); closeSheet(); }));
+      body.appendChild(row);
+      if (s.isHost && s.seats.some((q) => q.kind === "empty")) body.appendChild(UI.el("p", "set-why", "Start before anyone joins and you play the computer."));
+    } else {
+      const name = document.createElement("input");
+      name.className = "net-inp"; name.id = "net-name"; name.maxLength = 20; name.placeholder = "Your name";
+      name.autocomplete = "nickname"; name.value = lsGet(NAME_KEY) || "";
+      body.appendChild(name);
+      const mk = UI.button("Make a room", "primary", () => netGo("create"), netBusy);
+      mk.id = "net-create"; mk.classList.add("wide");
+      body.appendChild(mk);
+      const row = UI.el("div", "net-row");
+      const code = document.createElement("input");
+      code.className = "net-inp"; code.id = "net-code"; code.maxLength = 5; code.placeholder = "Room code";
+      code.autocapitalize = "characters"; code.autocomplete = "off"; code.spellcheck = false;
+      row.appendChild(code);
+      const jb = UI.button("Join", "", () => netGo("join"), netBusy);
+      jb.id = "net-join";
+      row.appendChild(jb);
+      body.appendChild(row);
+      if (netMsg) body.appendChild(UI.el("p", "set-why bad", netMsg));
+    }
+    sheet.appendChild(body);
+  }
+  async function netGo(kind) {
+    if (netBusy) return;
+    const nm = ($("net-name").value || "").trim().slice(0, 20) || "Player";
+    lsSet(NAME_KEY, nm);
+    const code = ($("net-code").value || "").trim().toUpperCase();
+    if (kind === "join" && code.length !== 5) { netMsg = "Room codes have 5 letters."; openSheet("Play a friend online", buildOnline); return; }
+    netBusy = true; netMsg = ""; openSheet("Play a friend online", buildOnline);
+    const r = kind === "create" ? await root.Net.create(nm) : await root.Net.join(code, nm);
+    netBusy = false;
+    if (!r.ok) netMsg = r.message || "That didn't work. Try again.";
+    if ($("sheet-back") && !online()) openSheet("Play a friend online", buildOnline);
+  }
+  $("btn-online").addEventListener("click", () => { netMsg = ""; openSheet("Play a friend online", buildOnline); });
+  document.addEventListener("net:room", (e) => {
+    const s = e.detail;
+    if (["closed", "left", "none"].includes(s.status)) {
+      if (online()) { netToast(s.status === "closed" ? "The room was closed." : "You left the room."); leaveGame(); }
+      return;
+    }
+    // keep the lobby sheet current while it's open
+    const open = $("sheet-back") && $("sheet-back").querySelector(".sheet-body.net");
+    if (open && (s.status === "lobby" || s.status === "joining")) openSheet("Play a friend online", buildOnline);
+  });
+  document.addEventListener("net:error", (e) => netToast(e.detail));
+  function enterOnline(s) {
+    closeSheet();
+    lsDel(SAVE_KEY);
+    root.Local.stop();
+    gameSeq++;
+    lastOpts = null;
+    game = { id: gameSeq, daily: false, day: null, hinted: false, recorded: false, muggins: false, bestHand: 0, reviews: [], seen: {} };
+    selected = []; hint = null; prev = null; current = null; claimVal = 0;
+    const opp = s.seats[1 - s.mySeat] || {};
+    gameTitle.textContent = "Online · room " + s.code;
+    gameSub.textContent = "You vs " + (opp.kind === "computer" ? "the computer" : opp.name || "your friend");
+    gameSub.title = "";
+    showScreen("game");
+  }
 
   // ================================================================ sheets ==
   function openSheet(title, build, tabs) {
@@ -258,6 +360,7 @@
 
   $("btn-quit").addEventListener("click", async () => {
     const live = current && current.pub.winner === null;
+    if (live && online() && !(await appConfirm("Leave the room? A computer takes your seat.", "Leave"))) return;
     if (live && game && game.daily) {
       if (!(await appConfirm("Leave the Daily game? It counts as a loss.", "Leave"))) return;
       if (Profile && !game.recorded) { game.recorded = true; Profile.recordResult({ mode: "computer", level: "hard", won: false, daily: true, date: game.day }); }
@@ -266,6 +369,7 @@
   });
 
   function leaveGame() {
+    if (online() || (root.Net && root.Net.active)) root.Net.leave();
     root.Local.stop();
     lsDel(SAVE_KEY);
     if (fan && fan.disconnect) fan.disconnect();
@@ -282,6 +386,7 @@
 
   // ============================================================== rendering
   document.addEventListener("game:state", (e) => {
+    if (e.detail.mode === "online" && !online()) enterOnline(e.detail.net);
     prev = current;
     current = e.detail;
     // a new game's first view must not animate from the last game's
@@ -464,13 +569,13 @@
       const margin = pub.skunk === 2 ? " — a double skunk" : pub.skunk === 1 ? " — a skunk" : "";
       banner.appendChild(UI.el("p", null,
         `${pub.scores[seat]}–${pub.scores[opp]} after ${pub.handNumber} hand${pub.handNumber === 1 ? "" : "s"}${margin}.`));
-      const rated = UI.el("div", "rated", game && (game.hinted || root.Local.undos) ? "Hint or Undo used: counted under “with help”, not rated." : "");
+      const rated = UI.el("div", "rated", !online() && game && (game.hinted || root.Local.undos) ?"Hint or Undo used: counted under “with help”, not rated." : "");
       rated.id = "rated-line";
       banner.appendChild(rated);
       bannerSlot.appendChild(banner);
       mid.hidden = true;
       UI.renderPrompt(promptBox, won ? "Nicely played." : "Better luck next deal.", "The game ends the moment someone reaches 121.");
-      actionsBox.appendChild(UI.button(game && game.daily ? "New game" : "Play again", "primary", () => {
+      if (!online()) actionsBox.appendChild(UI.button(game && game.daily ? "New game" : "Play again", "primary", () => {
         const o = Object.assign({}, lastOpts, { muggins });
         if (o.daily) { delete o.daily; delete o.seed; delete o.day; o.level = level; }
         newGame(o);
@@ -491,7 +596,7 @@
           selected.length === 2 ? "Throw these two" : `Pick ${2 - selected.length} more`,
           "primary",
           () => {
-            const r = root.Local.submit({ type: "discard", cards: selected.slice() });
+            const r = tx().submit({ type: "discard", cards: selected.slice() });
             if (r && r.ok) { selected = []; hint = null; }
           },
           selected.length !== 2));
@@ -509,7 +614,7 @@
     if (pub.phase === "cut") {
       if (E.other(pub.dealer) === seat) {
         UI.renderPrompt(promptBox, "Cut for the starter", "It counts in every hand, and in the crib.");
-        actionsBox.appendChild(UI.button("Cut the deck", "primary", () => root.Local.submit({ type: "cut" })));
+        actionsBox.appendChild(UI.button("Cut the deck", "primary", () => tx().submit({ type: "cut" })));
       } else {
         UI.renderPrompt(promptBox, `${pub.names[opp]} is cutting`, "A jack turned up gives you two for his heels.");
       }
@@ -561,7 +666,7 @@
         st.appendChild(minus); st.appendChild(val); st.appendChild(plus);
         actionsBox.appendChild(st);
         actionsBox.appendChild(UI.button("Claim", "primary", () => {
-          const r = root.Local.submit({ type: "claim", points: claimVal });
+          const r = tx().submit({ type: "claim", points: claimVal });
           if (r && r.ok) claimVal = 0;
         }));
       } else {
@@ -578,7 +683,7 @@
         : `You claimed ${pub.showClaim}; it's ${pub.showPoints}.`);
     }
     UI.renderPrompt(promptBox, `Counting ${what}: ${pub.showPoints}`, order, note);
-    actionsBox.appendChild(UI.button(pub.showStep < 2 ? "Continue" : "Next hand", "primary", () => root.Local.submit({ type: "next" })));
+    actionsBox.appendChild(UI.button(pub.showStep < 2 ? "Continue" : "Next hand", "primary", () => tx().submit({ type: "next", step: pub.showStep, hand: pub.handNumber })));
 
     if (fresh) {
       const label = pub.showLabel === "crib" ? "The crib" : "The hand";
@@ -660,7 +765,7 @@
         } catch (e) { /* ignore */ }
       }, 450);
     }
-    if (!Profile) return;
+    if (!Profile || online()) return;   // My stats rates games vs the computer only
     const helped = game.hinted || root.Local.undos > 0;
     const res = CP.result({ pub, seat, level: lastOpts.level, helped, daily: game.daily, muggins: game.muggins, bestHand: game.bestHand });
     if (game.daily) res.date = game.day;
@@ -700,7 +805,7 @@
       render();
       return;
     }
-    if (pub.phase === "pegging" && pub.pegTurn === seat) root.Local.submit({ type: "play", card });
+    if (pub.phase === "pegging" && pub.pegTurn === seat) tx().submit({ type: "play", card });
   });
   yourHand.addEventListener("keydown", (e) => {
     const node = e.target.closest && e.target.closest(".tbl-card");
@@ -711,6 +816,8 @@
   const savedLevel = lsGet(LEVEL_KEY);
   if (savedLevel && ["easy", "medium", "hard"].includes(savedLevel)) level = savedLevel;
   pressLevel();
+  // a reload mid-game puts this phone back in its online room (only if it was in one)
+  if (root.Net) root.Net.resume().then((ok) => { const s = root.Net.snap; if (ok && s && s.status === "lobby") openSheet("Play a friend online", buildOnline); });
 
   root.App = { showScreen, confirm: appConfirm, get current() { return current; }, get game() { return game; }, newGame, board };
 })(typeof self !== "undefined" ? self : this);

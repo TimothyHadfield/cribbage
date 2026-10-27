@@ -1,8 +1,8 @@
 # Cribbage — notes for Claude
 
 Two-player cribbage to 121 in the browser, built for Tim to play on his iPhone and
-laptop. You play the computer (easy / medium / hard) or the Daily game. Online play is
-off and hidden (stopped by the Online guard, see PROGRESS.md). No accounts, no build
+laptop. You play the computer (easy / medium / hard) or the Daily game, or a friend online
+by room code (shared `_online` kit, on since 2026-10-27). No accounts, no build
 step, no dependencies for the site itself.
 
 - Live: https://timothyhadfield.github.io/cribbage/ (GitHub Pages from `main`, root folder)
@@ -19,6 +19,7 @@ step, no dependencies for the site itself.
 - `js/ui.js` — DOM builders (cards via the table kit). `js/app.js` — controller (screens, sheets, sounds, save/resume, stats).
 - `js/profile-crib.js` — My stats glue: levels (measured Elo), achievements, result mapping.
 - Shared kit copies, byte-identical, never edit here: `js/table.js`, `css/table.css` (`_table` 1.0.2), `js/fx.js` (`_fx` 1.0.3), `js/profile.js`, `css/profile.css` (`_profile` 1.0.1).
+- Online: `js/game-online.js` (kit `_online/online.js` v2, byte-identical, never edit; named so because `js/online.js` is the old dead file), `js/crib-online.js` (rules adapter for the kit), `js/net.js` (transport: rooms, lobby events, `submit`). Tests: `test/online.test.mjs` (node), `test/ui.online.mjs <url> [outDir]` (two headless phones on real Firestore).
 - Dead, not loaded: `js/online.js`, `js/firebase-config.js`, `firestore.rules`, `firebase.json`, `test/rules.test.js` (old own-project online setup).
 - `tools/measure-levels.js` — self-play Elo gaps between levels.
 
@@ -34,7 +35,7 @@ step, no dependencies for the site itself.
 Push to `main`; GitHub Pages rebuilds. `python ~/.claude/hooks/live-check.py <repo path>` waits for it.
 
 ## Decisions (don't relitigate)
-- Online only through the shared `_online` + Firestore `th-board-games`, and only if it passes the Online guard (it didn't, 2026-10-27).
+- Online only through the shared `_online` + Firestore `th-board-games` (on since 2026-10-27, Tim's go; ~331 writes per game).
 - Muggins off by default. Games vs computer rated unless Hint/Undo used.
 - `handValue` duplicating `scoreHand` is intentional. Log lines use "Name: thing" because one player is "You". "Go" is automatic.
 

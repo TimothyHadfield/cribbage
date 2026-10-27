@@ -2,12 +2,12 @@
 
 ## START HERE
 Last updated 2026-10-27.
-Read order: this file → [CLAUDE.md](CLAUDE.md) (file map, run/test/deploy) → [README.md](README.md) (design; its online section describes the OLD own-project setup, now dead) → [chat.md](chat.md) (session log). Pre-October notes: [docs/archive/PROGRESS-2026-08-10.md](docs/archive/PROGRESS-2026-08-10.md).
+Read order: this file → [CLAUDE.md](CLAUDE.md) (file map, run/test/deploy) → [README.md](README.md) (design; its "Online play" section describes the OLD own-project setup, now dead; live online uses `_online`, see Status) → [chat.md](chat.md) (session log). Pre-October notes: [docs/archive/PROGRESS-2026-08-10.md](docs/archive/PROGRESS-2026-08-10.md).
 
 Live: https://timothyhadfield.github.io/cribbage/ · Repo: `TimothyHadfield/cribbage` (public) · Card on the Board & Card Games hub: yes.
 
 ## Goal right now
-Brought up to the 2026-10 wave games (improve-1027): table look, wooden peg board, sounds, muggins, undo, count review, My stats, Daily game, resume. **Online stays off**: the Online guard stopped it (numbers below) — Tim decides.
+Brought up to the 2026-10 wave games (improve-1027): table look, wooden peg board, sounds, muggins, undo, count review, My stats, Daily game, resume. **Online is ON** (friend rooms by code) since 2026-10-27, Tim's go: "it'll be okay to enable it to all games for now and we can disable it later if it becomes too much".
 
 ## Status
 | Piece | State (checked 2026-10-27) |
@@ -21,17 +21,16 @@ Brought up to the 2026-10 wave games (improve-1027): table look, wooden peg boar
 | My stats | `_profile` 1.0.1. Games vs computer are **rated** unless Hint or Undo was used ("with help"). Daily game = Hard, same deal for everyone that day. |
 | Computer levels | Measured (3,000 games/pair, `node tools/measure-levels.js 3000`): Medium beats Easy 76.0% (+200 Elo), Hard beats Medium 53.0% (+21), Hard beats Easy 80.6% (+247). Anchors: Easy 1000, Medium 1200, Hard 1235. |
 | Layout | No page scroll, no overflow, 0 console errors at 393×659 and 320×568 (WebKit), 659×393 landscape, 1280×800 and 1440×900 (Chrome). 2026-10-27. |
-| Tests | score 81, engine 95, ai 71, muggins 24, local 24 assertions; exhaustive 43/43. |
-| Online | **Off and hidden.** Old own-project files (`js/online.js`, `js/firebase-config.js`, `firestore.rules`, `firebase.json`, `test/rules.test.js`) are still in the repo but no longer loaded by the page. |
+| Tests | score 81, engine 95, ai 71, muggins 24, local 24 assertions; exhaustive 43/43; `node --test test/online.test.mjs` 6 (failed before `crib-online.js`). `node test/ui.online.mjs <url> [dir]`: two headless phones, real Firestore, whole game with the friend reloading mid-game (10-27: passed, 1.9 min, 121–94, no errors). |
+| Online | **On (2026-10-27).** "Play a friend online" on the menu → name, Make a room / Join by 5-letter code. Shared kit `_online` v2 copied as `js/game-online.js` (byte-identical; `js/online.js` was taken by the old code). Rules adapter `js/crib-online.js`, transport `js/net.js` (lazy-loads the kit, Firestore `th-board-games`). Friend rooms only, no matchmaking. Empty seat at start = computer (Medium). Old own-project files (`js/online.js`, `js/firebase-config.js`, `firestore.rules`, `firebase.json`, `test/rules.test.js`) left in the repo, not loaded. |
 
-## Online guard (2026-10-27, measured + kit rates)
-- 2-player game = **171 engine actions** on average (200 self-play games, 12.4 hands). `_online` README: ≈3 writes per move + heartbeats → **≈600 writes/game**, similar reads.
-- Normal day (1 game) ≈ 600 writes (3% of 20K). **Busy day (10 games) ≈ 6,000 writes = 30%** > the 10% limit → **STOPPED**. Even folding the 3 count steps into one, ≈500 writes/game.
-- Cheapest way if Tim wants it anyway: one write per move (not per state), show counted in one step — still ~25% on a busy day.
+## Online cost (2026-10-27, measured with the kit cost harness, v2 batching)
+- One 2-person game: **331 writes, 693 reads, 71 deletes** (134 moves). Free plan: 20K writes / 50K reads a day → ~60 games a day before writes run out.
 
 ## Authorized next steps
 - 2026-10-17, Tim: "any fixes or improvements you feel confident about go ahead and do, pretty much always. You don't have to ask me."
-- **Not authorized:** online play (over the Online guard; needs Tim). Removing the old own-project online files (harmless, left for Tim's call).
+- 2026-10-27, Tim: online on for all games ("we can disable it later if it becomes too much"). Done.
+- **Not authorized:** removing the old own-project online files (harmless, left for Tim's call).
 
 ## Standing instructions (Tim's words)
 - "any fixes or improvements you feel confident about go ahead and do, pretty much always. You don't have to ask me." (2026-10-17)
@@ -54,7 +53,7 @@ Brought up to the 2026-10 wave games (improve-1027): table look, wooden peg boar
 - Rated unless Hint/Undo used; Daily game always Hard.
 - Undo history is per hand; no undo once the count starts.
 - Cards are integers 0-51. `handValue` duplicates `scoreHand` on purpose. "Go" is automatic.
-- Host-authoritative online (old design) — moot while online is off.
+- Online = shared `_online` kit (host's phone runs the rules; hands in per-seat private docs). The show's Continue carries step + hand so a double tap can't skip a count. No ratings/My stats for online games; no Play again (new room instead).
 
 ## NOT verified
 - Real iPhone Safari (WebKit via Playwright only).
@@ -63,7 +62,7 @@ Brought up to the 2026-10 wave games (improve-1027): table look, wooden peg boar
 - Resume across an actual iOS tab eviction (tested by page reload).
 
 ## Rejected / parked
-- ~~Online rooms via `_online` + th-board-games~~ — stopped by the Online guard 2026-10-27 (busy day ≈30% of free writes). Tim's call.
+- ~~Online rooms via `_online` + th-board-games~~ — un-parked and built 2026-10-27 (Tim's go).
 - ~~Three-player cribbage~~ — skipped: engine assumes two seats throughout; not cheap.
 - ~~Traditional peg-hole board~~ — un-parked and built 2026-10-27.
 - ~~Muggins~~ — un-parked and built 2026-10-27 (off by default).

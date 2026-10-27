@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Cribbage — Timothy Hadfield</title>
-<meta name="description" content="Play cribbage to 121 on a wooden peg board against a measured computer opponent, with undo, a count review and muggins.">
+<meta name="description" content="Play cribbage to 121 on a wooden peg board against a measured computer opponent or a friend online, with undo, a count review and muggins.">
 <meta name="theme-color" content="#0f1117">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
@@ -104,6 +104,17 @@
   .menu-foot { margin-top: 10px; text-align: center; font-size: 13px; }
   .menu-foot a { color: var(--muted); }
   .daily-done { color: var(--good); font-size: 12px; font-weight: 600; }
+  .menu-actions .btn.online { grid-column: 1 / -1; }
+  /* online: the lobby sheet + a small message line */
+  .net-inp { width: 100%; min-width: 0; background: var(--bg-soft); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; color: var(--text); font: inherit; font-size: 16px; }
+  .net-inp:focus { outline: none; border-color: var(--accent); }
+  .sheet-body.net .btn.wide { width: 100%; margin-top: 8px; }
+  .net-row { display: flex; gap: 8px; align-items: center; margin-top: 10px; }
+  .net-row .grow { flex: 1; padding: 0; }
+  .net-code { font-size: 36px; font-weight: 800; letter-spacing: .2em; text-align: center; color: var(--accent-warm); margin: 2px 0 4px; user-select: all; }
+  .sheet-body.net .lab.muted { color: var(--muted); font-style: italic; }
+  .set-why.bad { color: var(--bad); }
+  .net-toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(16px + env(safe-area-inset-bottom)); z-index: 90; background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 8px 14px; font-size: 14px; box-shadow: var(--shadow); max-width: calc(100% - 32px); }
 
   /* ---------------------------------------------------------- game: top */
   .topbar {
@@ -373,6 +384,7 @@
       <button class="btn primary" id="btn-vs-cpu">Deal</button>
       <button class="btn" id="btn-daily">Daily game</button>
       <button class="btn pf-open" id="btn-stats-menu">My stats</button>
+      <button class="btn online" id="btn-online">Play a friend online</button>
     </div>
     <div class="menu-links">
       <button class="btn" id="btn-rules">How to play</button>
@@ -492,10 +504,12 @@
 <script src="js/engine.js?v=20261027f"></script>
 <script src="js/ai.js?v=20261027f"></script>
 <script src="js/local.js?v=20261027f"></script>
+<script src="js/crib-online.js?v=20261027n"></script>
+<script src="js/net.js?v=20261027n"></script>
 <script src="js/board.js?v=20261027f"></script>
 <script src="js/profile-crib.js?v=20261027f"></script>
 <script src="js/ui.js?v=20261027f"></script>
-<script src="js/app.js?v=20261027f"></script>
+<script src="js/app.js?v=20261027n"></script>
 
 </body>
 </html>
