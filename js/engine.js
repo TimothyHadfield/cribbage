@@ -45,8 +45,11 @@
   /**
    * @param {Array<{uid:string,name:string}>} players exactly two
    * @param {function():number} rng
+   * @param {{muggins?: boolean[]}} [opts] muggins[p]: seat p must claim its own
+   *        counts, and the opponent takes any points it misses. Off by default.
    */
-  function initGame(players, rng) {
+  function initGame(players, rng, opts) {
+    const mug = (opts && opts.muggins) || [];
     if (!players || players.length !== 2) throw new Error("Cribbage is a two-player game here.");
     const state = {
       version: 1,
@@ -68,6 +71,7 @@
       log: [],
       winner: null,
       skunk: 0,             // 0 none, 1 skunk (<91), 2 double skunk (<61)
+      muggins: [!!mug[0], !!mug[1]],
     };
     deal(state, rng);
     return state;
@@ -145,6 +149,7 @@
       case "cut":     return doCut(s, p, rng);
       case "play":    return doPlay(s, p, action, rng);
       case "next":    return doNext(s, p, rng);
+      case "claim":   return doClaim(s, p, action);
       default:        return { ok: false, error: "Unknown action." };
     }
   }
@@ -282,13 +287,34 @@
     s.show.who = info.who;
     s.show.label = info.label;
     s.show.cards = info.cards.slice();
+    s.show.claim = null;
+    // Muggins: this seat counts for itself, so nothing is awarded until it claims.
+    if (s.muggins && s.muggins[info.who]) { s.show.pending = true; return; }
+    s.show.pending = false;
     award(s, info.who, r.points, info.isCrib ? "Crib" : "Hand");
     if (r.points === 0) log(s, `${s.names[info.who]}: nothing in ${info.isCrib ? "the crib" : "hand"}`, info.who);
+  }
+
+  /** Muggins: the counting player names a total. Short = the opponent takes the rest. */
+  function doClaim(s, p, action) {
+    if (s.phase !== "show" || !s.show.pending) return { ok: false, error: "Nothing to claim." };
+    if (p !== s.show.who) return { ok: false, error: "Not your count." };
+    const claim = action.points;
+    if (!Number.isInteger(claim) || claim < 0 || claim > 29) return { ok: false, error: "Claim 0 to 29." };
+    const real = s.show.points, isCrib = s.show.label === "crib";
+    s.show.pending = false;
+    s.show.claim = claim;
+    const got = Math.min(claim, real);
+    award(s, p, got, isCrib ? "Crib" : "Hand");
+    if (got === 0) log(s, `${s.names[p]}: nothing in ${isCrib ? "the crib" : "hand"}`, p);
+    if (claim < real) award(s, other(p), real - claim, "Muggins");
+    return { ok: true, state: s };
   }
 
   /** Acknowledge the current show step and move on. Either player may send it. */
   function doNext(s, p, rng) {
     if (s.phase !== "show") return { ok: false, error: "Nothing to acknowledge." };
+    if (s.show.pending) return { ok: false, error: "Count your hand first." };
     if (s.show.step < 2) {
       s.show.step++;
       scoreShowStep(s);
@@ -333,8 +359,10 @@
       showStep: step,
       showWho: s.show.who,
       showLabel: s.show.label,
-      showPoints: s.show.points,
-      showItems: revealed ? s.show.items : [],
+      showPoints: s.show.pending ? null : s.show.points,
+      showItems: revealed && !s.show.pending ? s.show.items : [],
+      showPending: !!s.show.pending,
+      showClaim: s.show.claim == null ? null : s.show.claim,
       showCards: revealed && s.show.cards ? s.show.cards.slice() : [],
       revealed0: revealed && isRevealed(s, 0) ? s.dealt[0].slice() : [],
       revealed1: revealed && isRevealed(s, 1) ? s.dealt[1].slice() : [],
