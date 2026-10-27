@@ -19,7 +19,7 @@
   function load() {
     if (room) return Promise.resolve(room);
     if (!loading) {
-      loading = import("./game-online.js?v=20261027n").then((m) => {
+      loading = import("./game-online.js?v=a3d0418b").then((m) => {
         room = m.createOnline({ game: root.CribOnline.game, gameId: "cribbage", botDelayMs: 900 });
         room.on("change", onChange);
         room.on("error", (msg) => emit("net:error", typeof msg === "string" ? msg : (msg && msg.message) || "Online error"));

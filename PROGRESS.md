@@ -38,6 +38,7 @@ Brought up to the 2026-10 wave games (improve-1027): table look, wooden peg boar
 - Global rules apply ($0; Tim decides visuals and wording).
 
 ## Traps
+- **game-online.js cache stamp (2026-10-27):** `js/net.js` imports the shared kit as `game-online.js?v=a3d0418b`, the `_online` content stamp. After a re-copy: put the new stamp from `node ../_online/tools/stamp.mjs` there, bump `js/net.js?v=` in index.html, then `node ../_online/tools/stamp.mjs --check .` must say OK.
 - **SVG gradient ids must be unique per board** (`js/board.js` uses `pb1-…`, `pb2-…`): the menu has a hidden board, and Chrome resolves `url(#id)` to the first match → the game board drew with no wood or holes.
 - **Kit copies are byte-identical** (`js/table.js`, `js/fx.js`, `js/profile.js`, `css/table.css`, `css/profile.css`; `.gitattributes` `-text`). Re-copy from `Board and Card Games/_table|_fx|_profile`; never edit here.
 - `publicView.log` is only the last 12 lines; use `logCount` to tell which are new (pegging callouts).
