@@ -153,15 +153,17 @@
     // In the HAND: four matching cards score 4, five score 5.
     // In the CRIB: only a five-card flush counts at all. This asymmetry is the
     // single most commonly mis-implemented rule in cribbage.
-    if (hand.length === 4) {
+    // Five-card cribbage keeps three: the same rule with three (3, or 4 with the starter).
+    if (hand.length === 4 || hand.length === 3) {
+      const n = hand.length;
       const s0 = suitOf(hand[0]);
       const handFlush = hand.every((c) => suitOf(c) === s0);
       if (handFlush) {
         const withStarter = starter != null && suitOf(starter) === s0;
         if (withStarter) {
-          items.push({ type: "flush", points: 5, cards: all.slice(), label: "Flush (5)" });
+          items.push({ type: "flush", points: n + 1, cards: all.slice(), label: `Flush (${n + 1})` });
         } else if (!isCrib) {
-          items.push({ type: "flush", points: 4, cards: hand.slice(), label: "Flush (4)" });
+          items.push({ type: "flush", points: n, cards: hand.slice(), label: `Flush (${n})` });
         }
       }
     }
@@ -226,15 +228,15 @@
     }
 
     // flush
-    if (hand.length === 4) {
+    if (hand.length === 4 || hand.length === 3) {
       const s0 = Math.floor(hand[0] / 13);
       if (
         Math.floor(hand[1] / 13) === s0 &&
         Math.floor(hand[2] / 13) === s0 &&
-        Math.floor(hand[3] / 13) === s0
+        (hand.length === 3 || Math.floor(hand[3] / 13) === s0)
       ) {
-        if (starter != null && Math.floor(starter / 13) === s0) points += 5;
-        else if (!isCrib) points += 4;
+        if (starter != null && Math.floor(starter / 13) === s0) points += hand.length + 1;
+        else if (!isCrib) points += hand.length;
       }
     }
 

@@ -89,14 +89,22 @@
       const y = Y0 + s * STREET + t * TRACK + (t ? 2.9 : -2.9);
       mk("line", { x1: X0 - 3, x2: holeX(39) + 3, y1: y, y2: y, stroke: t ? "#2f66c9" : "#d07a1c", "stroke-width": 0.6, opacity: 0.55 }, svg);
     }
-    // skunk lines (91) and double skunk (61)
+    // skunk lines (91) and double skunk (61); a short game to 61 shows its
+    // finish line and its skunk line (31) instead
     const between = (n) => (holeXY(0, n).x + holeXY(0, n + 1).x) / 2;
-    for (const [n, label] of [[90, "S"], [60, "SS"]]) {
-      const x = between(n), st = n === 90 ? 2 : 1;
-      mk("line", { x1: x, x2: x, y1: Y0 + st * STREET - 5, y2: Y0 + st * STREET + TRACK + 5, stroke: "#f0d7a8", "stroke-width": 0.7, opacity: 0.7, "stroke-dasharray": "1.4 1.2" }, svg);
-      const t = mk("text", { x, y: Y0 + st * STREET - 6.2, "text-anchor": "middle", "font-size": 4.2, fill: "#f0d7a8", opacity: 0.8, "font-family": "system-ui, sans-serif", "font-weight": 700 }, svg);
-      t.textContent = label;
+    const lineSets = {};
+    for (const [target, marks] of [[121, [[90, "S"], [60, "SS"]]], [61, [[30, "S"], [61, "61"]]]]) {
+      const grp = mk("g", { class: "marks-" + target }, svg);
+      for (const [n, label] of marks) {
+        const x = n === 61 ? holeXY(0, 61).x + (holeXY(0, 62).x - holeXY(0, 61).x) * 0.5 : between(n);
+        const st = Math.floor(n / 40);
+        mk("line", { x1: x, x2: x, y1: Y0 + st * STREET - 5, y2: Y0 + st * STREET + TRACK + 5, stroke: "#f0d7a8", "stroke-width": n === 61 ? 1.1 : 0.7, opacity: 0.7, "stroke-dasharray": n === 61 ? "none" : "1.4 1.2" }, grp);
+        const t = mk("text", { x, y: Y0 + st * STREET - 6.2, "text-anchor": "middle", "font-size": 4.2, fill: "#f0d7a8", opacity: 0.8, "font-family": "system-ui, sans-serif", "font-weight": 700 }, grp);
+        t.textContent = label;
+      }
+      lineSets[target] = grp;
     }
+    lineSets[61].setAttribute("display", "none");
     // every hole of both tracks, the start pairs and the game hole
     for (let t = 0; t < 2; t++) {
       for (let n = -1; n <= 120; n++) {
@@ -149,8 +157,17 @@
       });
     }
 
+    let shownTarget = 121;
     const board = {
       el, svg,
+      /** 121 (default) or 61: which finish and skunk lines are drawn. */
+      setTarget(t) {
+        t = t === 61 ? 61 : 121;
+        if (t === shownTarget) return;
+        shownTarget = t;
+        lineSets[121].setAttribute("display", t === 121 ? "inline" : "none");
+        lineSets[61].setAttribute("display", t === 61 ? "inline" : "none");
+      },
       /** Current hole of each peg, for tests: [[a, b], [a, b]] by track. */
       positions: () => pegs.map((ps) => ps.map((g) => Number(g.dataset.n))),
       /**

@@ -253,6 +253,7 @@
   .sheet-body .rules-text { color: var(--muted); }
   .sheet-body .rules-text h4 { color: var(--text); text-transform: none; letter-spacing: 0; font-size: 14px; }
   .sheet-body .rules-text ul { margin: 4px 0; padding-left: 20px; }
+  .sheet-body .rules-text .vid-list a { color: var(--accent); }
   @media (min-width: 900px) {
     .sheet-back { align-items: center; }
     .sheet { border-radius: 16px; max-height: 80vh; }
@@ -371,7 +372,7 @@
 <section class="screen active tbl-surface tbl-felt-green" id="screen-menu">
   <div class="menu-card">
     <h1>Cribbage</h1>
-    <p class="sub">Play to 121 against the computer.</p>
+    <p class="sub" id="menu-sub">Play to 121 against the computer.</p>
     <div class="menu-board" id="menu-board" aria-hidden="true"></div>
     <div class="lab-row">Computer level</div>
     <div class="seg" id="difficulty" role="group" aria-label="Difficulty">
@@ -492,6 +493,20 @@
        and it's a skunk; before SS (61), a double skunk.</p>
     <h4>Muggins (optional, in Settings)</h4>
     <p>You count your own hand and crib. Miss points and the computer takes them.</p>
+    <h4>Variants (optional, in Settings)</h4>
+    <ul>
+      <li><strong>Short game:</strong> first to 61 wins. Skunk under 31.</li>
+      <li><strong>Five-card:</strong> five cards each, keep three (a three-card flush is 3, or 4
+          with the starter). The play stops at the first 31 or go. The first non-dealer
+          starts on 3. Game to 61.</li>
+    </ul>
+    <h4>Videos</h4>
+    <ul class="vid-list">
+      <li><a href="https://www.youtube.com/watch?v=kHHgH-Bif-M" target="_blank" rel="noopener">Learn the right way to play</a> — Rulies</li>
+      <li><a href="https://www.youtube.com/watch?v=TiHA44apfC0" target="_blank" rel="noopener">How to play, for beginners</a> — Huddle Around Games</li>
+      <li><a href="https://www.youtube.com/watch?v=wf1TXNCTI-k" target="_blank" rel="noopener">Discard fundamentals</a> — Huddle Around Games</li>
+      <li><a href="https://www.youtube.com/watch?v=1MRZQCZ3INg" target="_blank" rel="noopener">15 tips for winning</a> — Huddle Around Games</li>
+    </ul>
   </div>
 </template>
 
@@ -499,17 +514,17 @@
 <script src="js/fx.js?v=20261027f"></script>
 <script src="js/table.js?v=20261027f"></script>
 <script src="js/profile.js?v=20261027g"></script>
-<script src="js/score.js?v=20261027f"></script>
+<script src="js/score.js?v=20261028a"></script>
 <script src="js/crib-ev.js?v=20261027f"></script>
-<script src="js/engine.js?v=20261027f"></script>
-<script src="js/ai.js?v=20261027f"></script>
-<script src="js/local.js?v=20261027f"></script>
+<script src="js/engine.js?v=20261028a"></script>
+<script src="js/ai.js?v=20261028a"></script>
+<script src="js/local.js?v=20261028a"></script>
 <script src="js/crib-online.js?v=20261027n"></script>
 <script src="js/net.js?v=20261027p"></script>
-<script src="js/board.js?v=20261027f"></script>
+<script src="js/board.js?v=20261028a"></script>
 <script src="js/profile-crib.js?v=20261027f"></script>
 <script src="js/ui.js?v=20261027f"></script>
-<script src="js/app.js?v=20261027n"></script>
+<script src="js/app.js?v=20261028a"></script>
 
 </body>
 </html>

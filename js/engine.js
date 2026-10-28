@@ -28,6 +28,8 @@
   const TARGET = 121;
   const other = (p) => (p === 0 ? 1 : 0);
   const clone = (s) => JSON.parse(JSON.stringify(s));
+  /** Saves from before the variants have no target: they are 121 games. */
+  const targetOf = (s) => (s.target === 61 ? 61 : TARGET);
 
   // ------------------------------------------------------------------ deck
   function shuffled(rng) {
@@ -45,11 +47,16 @@
   /**
    * @param {Array<{uid:string,name:string}>} players exactly two
    * @param {function():number} rng
-   * @param {{muggins?: boolean[]}} [opts] muggins[p]: seat p must claim its own
-   *        counts, and the opponent takes any points it misses. Off by default.
+   * @param {{muggins?: boolean[], target?: number, fiveCard?: boolean}} [opts]
+   *        muggins[p]: seat p must claim its own counts, and the opponent takes
+   *        any points it misses. target: 121 (default) or 61 (short game).
+   *        fiveCard: five-card cribbage (5 dealt, keep 3, the play stops at the
+   *        first 31 or go, the first non-dealer pegs 3, game to 61). All off by default.
    */
   function initGame(players, rng, opts) {
     const mug = (opts && opts.muggins) || [];
+    const fiveCard = !!(opts && opts.fiveCard);
+    const target = fiveCard ? 61 : opts && Number(opts.target) === 61 ? 61 : TARGET;
     if (!players || players.length !== 2) throw new Error("Cribbage is a two-player game here.");
     const state = {
       version: 1,
@@ -72,8 +79,12 @@
       winner: null,
       skunk: 0,             // 0 none, 1 skunk (<91), 2 double skunk (<61)
       muggins: [!!mug[0], !!mug[1]],
+      target,
+      fiveCard,
     };
     deal(state, rng);
+    // Five-card: the first non-dealer pegs three to make up for the dealer's crib.
+    if (fiveCard) award(state, other(state.dealer), 3, "Three for last");
     return state;
   }
 
@@ -81,8 +92,9 @@
   function deal(state, rng) {
     state.handNumber++;
     const deck = shuffled(rng);
-    state.hands = [deck.slice(0, 6).sort(bySort), deck.slice(6, 12).sort(bySort)];
-    state.deck = deck.slice(12);
+    const n = state.fiveCard ? 5 : 6;
+    state.hands = [deck.slice(0, n).sort(bySort), deck.slice(n, 2 * n).sort(bySort)];
+    state.deck = deck.slice(2 * n);
     state.dealt = [[], []];
     state.thrown = [[], []];
     state.crib = [];
@@ -103,14 +115,16 @@
   function award(state, p, points, label) {
     if (!points || state.winner !== null) return;
     state.prevScores[p] = state.scores[p];
-    state.scores[p] = Math.min(TARGET, state.scores[p] + points);
+    const target = targetOf(state);
+    state.scores[p] = Math.min(target, state.scores[p] + points);
     log(state, `${state.names[p]}: ${label} for ${points}`, p, points);
-    if (state.scores[p] >= TARGET) {
+    if (state.scores[p] >= target) {
       state.winner = p;
       state.phase = "gameover";
       const loser = state.scores[other(p)];
-      state.skunk = loser < 61 ? 2 : loser < 91 ? 1 : 0;
-      log(state, `${state.names[p]}: 121 — game${state.skunk === 2 ? ", a double skunk!" : state.skunk === 1 ? ", a skunk!" : "."}`, p);
+      // 121: skunk under 91, double under 61. The short game: skunk under 31.
+      state.skunk = target === TARGET ? (loser < 61 ? 2 : loser < 91 ? 1 : 0) : (loser < target - 30 ? 1 : 0);
+      log(state, `${state.names[p]}: ${target} — game${state.skunk === 2 ? ", a double skunk!" : state.skunk === 1 ? ", a skunk!" : "."}`, p);
     }
   }
 
@@ -235,7 +249,8 @@
 
     if (count === 31) {
       // Already paid two for the 31 — no go point on top. Reset and the other
-      // player leads the next sub-count.
+      // player leads the next sub-count. (Five-card: the play ends here.)
+      if (s.fiveCard) return toShow(s);
       resetCount(s, last);
     } else if (canPlay(s, other(last))) {
       s.peg.turn = other(last);
@@ -248,14 +263,18 @@
     } else {
       award(s, last, 1, spent ? "Last card" : "Go");
       if (s.winner !== null) return;
+      if (s.fiveCard) return toShow(s);
       resetCount(s, last);
     }
 
-    if (s.hands[0].length === 0 && s.hands[1].length === 0) {
-      s.phase = "show";
-      s.show = { step: 0, items: [], points: 0, who: null, label: "" };
-      scoreShowStep(s);
-    }
+    if (s.hands[0].length === 0 && s.hands[1].length === 0) toShow(s);
+  }
+
+  /** The play is over: count the hands. Five-card leaves any unplayed cards in hand. */
+  function toShow(s) {
+    s.phase = "show";
+    s.show = { step: 0, items: [], points: 0, who: null, label: "" };
+    scoreShowStep(s);
   }
 
   /** Count back to zero; the player who did NOT play last leads. */
@@ -370,7 +389,8 @@
       logCount: s.log.length,   // lets a viewer tell which of those 12 lines are new
       winner: s.winner,
       skunk: s.skunk,
-      target: TARGET,
+      target: targetOf(s),
+      fiveCard: !!s.fiveCard,
     };
   }
 

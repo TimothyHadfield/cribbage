@@ -86,6 +86,8 @@
       oppScore: pub.scores[E.other(seat)],
       oppCards: seat === 0 ? pub.handSize1 : pub.handSize0,
       level,
+      target: pub.target,
+      fiveCard: pub.fiveCard,
     };
   }
 
@@ -144,7 +146,7 @@
     get active() { return state !== null; },
     get undos() { return undos; },
 
-    /** opts: { level, yourName, cpuName, muggins, seed } */
+    /** opts: { level, yourName, cpuName, muggins, seed, target (121|61), fiveCard } */
     start(opts) {
       opts = opts || {};
       clearTimeout(timer);
@@ -155,7 +157,7 @@
         [{ uid: YOU, name: opts.yourName || "You" },
          { uid: CPU, name: opts.cpuName || "Computer" }],
         rngFor(null, SALT.init),
-        { muggins: [!!opts.muggins, false] }
+        { muggins: [!!opts.muggins, false], target: opts.target, fiveCard: !!opts.fiveCard }
       );
       thinking = false;
       publish();

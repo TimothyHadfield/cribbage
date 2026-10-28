@@ -45,6 +45,19 @@
   const lsSet = (k, v) => { try { localStorage.setItem(k, v); } catch (e) {} };
   const lsDel = (k) => { try { localStorage.removeItem(k); } catch (e) {} };
   let muggins = lsGet(MUGGINS_KEY) === "1";
+  // Rule variants (off by default) and the computer's pace. All remembered.
+  const SHORT_KEY = "cribbage.short.v1", FIVE_KEY = "cribbage.five.v1", CPU_SPEED_KEY = "cribbage.cpuspeed.v1";
+  let shortGame = lsGet(SHORT_KEY) === "1";
+  let fiveCard = lsGet(FIVE_KEY) === "1";
+  let cpuFast = lsGet(CPU_SPEED_KEY) === "fast";
+  /** Engine options for a new game vs the computer. Five-card is always to 61. */
+  const variantOpts = () => (fiveCard ? { fiveCard: true, target: 61 } : shortGame ? { target: 61 } : {});
+  const BASE_PACE = Object.assign({}, root.Local.pace);
+  function applyPace() {
+    const k = cpuFast ? 0.4 : 1;
+    root.Local.pace = { discard: Math.round(BASE_PACE.discard * k), cut: Math.round(BASE_PACE.cut * k), play: Math.round(BASE_PACE.play * k) };
+  }
+  applyPace();
   const online = () => !!current && current.mode === "online";
   /** Moves go to whichever transport drew the table: local.js (vs computer) or net.js (a friend online). */
   const tx = () => (online() ? root.Net : root.Local);
@@ -72,6 +85,9 @@
     const done = Profile.daily.played();
     $("btn-daily").innerHTML = done ? 'Daily game <span class="daily-done">✓ played</span>' : "Daily game";
     $("btn-resume").hidden = !readSave();
+    const v = variantOpts();
+    $("menu-sub").textContent = v.fiveCard ? "Five-card cribbage to 61 against the computer."
+      : v.target === 61 ? "Play to 61 against the computer." : "Play to 121 against the computer.";
   }
   paintMe();
   $("btn-stats").addEventListener("click", () => Profile && Profile.openPanel());
@@ -93,7 +109,8 @@
   function enterGame(opts) {
     selected = []; hint = null; prev = null; current = null; claimVal = 0;
     gameTitle.textContent = opts.daily ? "Daily game" : "You vs the computer";
-    gameSub.textContent = (opts.level[0].toUpperCase() + opts.level.slice(1)) + " computer" + (opts.muggins ? " · muggins" : "");
+    gameSub.textContent = (opts.level[0].toUpperCase() + opts.level.slice(1)) + " computer" +
+      (opts.fiveCard ? " · five-card" : opts.target === 61 ? " · to 61" : "") + (opts.muggins ? " · muggins" : "");
     gameSub.title = AI.describeLevel(opts.level);
     showScreen("game");
   }
@@ -129,7 +146,7 @@
   }
   $("btn-resume").addEventListener("click", resumeGame);
 
-  $("btn-vs-cpu").addEventListener("click", () => newGame({ level, muggins, yourName: "You", cpuName: "Computer" }));
+  $("btn-vs-cpu").addEventListener("click", () => newGame(Object.assign({ level, muggins, yourName: "You", cpuName: "Computer" }, variantOpts())));
 
   function startDaily() {
     if (!Profile) return;
@@ -264,30 +281,66 @@
   function closeSheet() { const b = $("sheet-back"); if (b) b.remove(); }
   document.addEventListener("keydown", (e) => { if (e.key === "Escape" && $("sheet-back")) closeSheet(); });
 
-  function buildSettings(sheet) {
-    const body = UI.el("div", "sheet-body");
-    body.appendChild(UI.el("h4", null, "Rules"));
+  /** One on/off rule: a switch, with its one-line explanation behind a "?". */
+  function ruleSwitch(body, id, label, explain, on, set) {
     const row = UI.el("div", "set-row");
     const lab = UI.el("span", "lab");
-    const l = UI.el("label", null, "Muggins");
-    l.htmlFor = "set-muggins";
+    const l = UI.el("label", null, label);
+    l.htmlFor = id;
     lab.appendChild(l);
     const q = UI.el("button", "q", "?");
     q.type = "button";
-    q.setAttribute("aria-label", "What is muggins?");
+    q.setAttribute("aria-label", "What is " + label.toLowerCase() + "?");
     lab.appendChild(q);
     row.appendChild(lab);
     const sw = UI.el("label", "switch");
     const inp = document.createElement("input");
-    inp.type = "checkbox"; inp.id = "set-muggins"; inp.checked = muggins;
+    inp.type = "checkbox"; inp.id = id; inp.checked = on;
     sw.appendChild(inp); sw.appendChild(UI.el("span"));
     row.appendChild(sw);
     body.appendChild(row);
-    const why = UI.el("div", "set-why", "You count your own hand and crib. Miss points and the computer takes them. Starts with your next game.");
+    const why = UI.el("div", "set-why", explain);
     why.hidden = true;
     body.appendChild(why);
     q.addEventListener("click", () => { why.hidden = !why.hidden; });
-    inp.addEventListener("change", () => { muggins = inp.checked; lsSet(MUGGINS_KEY, muggins ? "1" : "0"); });
+    inp.addEventListener("change", () => { set(inp.checked); paintMe(); });
+    return row;
+  }
+
+  function buildSettings(sheet) {
+    const body = UI.el("div", "sheet-body");
+    body.appendChild(UI.el("h4", null, "Rules"));
+    ruleSwitch(body, "set-muggins", "Muggins",
+      "You count your own hand and crib. Miss points and the computer takes them. Starts with your next game.",
+      muggins, (v) => { muggins = v; lsSet(MUGGINS_KEY, v ? "1" : "0"); });
+    const shortRow = ruleSwitch(body, "set-short", "Short game (61)",
+      "First to 61 wins instead of 121. Skunk under 31. Starts with your next game.",
+      shortGame, (v) => { shortGame = v; lsSet(SHORT_KEY, v ? "1" : "0"); });
+    const dimShort = () => shortRow.classList.toggle("dim", fiveCard);
+    ruleSwitch(body, "set-five", "Five-card",
+      "Five cards, keep three. Play stops at the first 31 or go. First non-dealer gets 3. To 61.",
+      fiveCard, (v) => { fiveCard = v; lsSet(FIVE_KEY, v ? "1" : "0"); dimShort(); });
+    dimShort();
+
+    body.appendChild(UI.el("h4", null, "Computer"));
+    const sp = UI.el("div", "set-row");
+    const spl = UI.el("span", "lab", "Speed");
+    sp.appendChild(spl);
+    const seg = UI.el("div", "seg");
+    seg.setAttribute("role", "group"); seg.setAttribute("aria-label", "Computer speed");
+    for (const [val, txt] of [["normal", "Normal"], ["fast", "Fast"]]) {
+      const b = UI.el("button", null, txt);
+      b.type = "button"; b.dataset.cpuspeed = val;
+      b.setAttribute("aria-pressed", String(cpuFast === (val === "fast")));
+      b.addEventListener("click", () => {
+        cpuFast = val === "fast"; lsSet(CPU_SPEED_KEY, val); applyPace();
+        for (const x of seg.children) x.setAttribute("aria-pressed", String(x === b));
+      });
+      seg.appendChild(b);
+    }
+    sp.appendChild(seg);
+    body.appendChild(sp);
+
     body.appendChild(UI.el("h4", null, "Sound & effects"));
     if (FX) FX.renderSettings(body);
     sheet.appendChild(body);
@@ -408,6 +461,7 @@
 
     // ---- scores + the peg board ----
     renderScores(pub, seat, opp);
+    board.setTarget(pub.target || 121);
     board.set([pub.scores[opp], pub.scores[seat]], [pub.prevScores[opp], pub.prevScores[seat]], { animate: !!p && animOn() })
       .then(() => { if (scored) fx("peg"); });
 
@@ -574,9 +628,11 @@
       banner.appendChild(rated);
       bannerSlot.appendChild(banner);
       mid.hidden = true;
-      UI.renderPrompt(promptBox, won ? "Nicely played." : "Better luck next deal.", "The game ends the moment someone reaches 121.");
+      UI.renderPrompt(promptBox, won ? "Nicely played." : "Better luck next deal.", `The game ends the moment someone reaches ${pub.target || 121}.`);
       if (!online()) actionsBox.appendChild(UI.button(game && game.daily ? "New game" : "Play again", "primary", () => {
         const o = Object.assign({}, lastOpts, { muggins });
+        delete o.target; delete o.fiveCard;
+        Object.assign(o, variantOpts());
         if (o.daily) { delete o.daily; delete o.seed; delete o.day; o.level = level; }
         newGame(o);
       }));
