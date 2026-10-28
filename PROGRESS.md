@@ -1,7 +1,7 @@
 # Cribbage — progress
 
 ## START HERE
-Last updated 2026-10-27.
+Last updated 2026-10-28 (wave 3: stronger Hard, variants, computer speed, videos).
 Read order: this file → [CLAUDE.md](CLAUDE.md) (file map, run/test/deploy) → [README.md](README.md) (design; its "Online play" section describes the OLD own-project setup, now dead; live online uses `_online`, see Status) → [chat.md](chat.md) (session log). Pre-October notes: [docs/archive/PROGRESS-2026-08-10.md](docs/archive/PROGRESS-2026-08-10.md).
 
 Live: https://timothyhadfield.github.io/cribbage/ · Repo: `TimothyHadfield/cribbage` (public) · Card on the Board & Card Games hub: yes.
@@ -19,9 +19,12 @@ Brought up to the 2026-10 wave games (improve-1027): table look, wooden peg boar
 | Undo vs computer | Throw and each card; not once the count starts or the game ends. Seeded deals per (seed, hand) so undo can't re-cut. |
 | Resume | Game in progress saved to localStorage (`cribbage.save.v1`); "Resume game" on the menu after a reload. Cleared on quit / game end. |
 | My stats | `_profile` 1.0.1. Games vs computer are **rated** unless Hint or Undo was used ("with help"). Daily game = Hard, same deal for everyone that day. |
-| Computer levels | Measured (3,000 games/pair, `node tools/measure-levels.js 3000`): Medium beats Easy 76.0% (+200 Elo), Hard beats Medium 53.0% (+21), Hard beats Easy 80.6% (+247). Anchors: Easy 1000, Medium 1200, Hard 1235. |
+| Computer levels | **2026-10-28:** Hard pegs by a whole-play search (minimax over 24 sampled opponent hands, pegging out = terminal); Medium keeps within 1 pt of the best hand and pegs greedily (no reply look-ahead). Measured 3,000 games/pair: Hard beats Medium **66.7% ±1.7** (+121 Elo), Medium beats Easy 67.7% (+129), Hard beats Easy 81.6% (+259). Before: 53.0 / 76.0 / 80.6. Anchors: Easy 1000, Medium 1129, Hard 1255. Online computer seat is Medium (so it got weaker too). |
+| Variants | Settings → Rules: **Short game (61)** and **Five-card** (5 dealt, keep 3, play stops at first 31/go, first non-dealer pegs 3, to 61, 3-card flush). Off by default, remembered, vs computer only (Daily and online always standard). Board shows 61 finish + S(31) lines. `test/variants.test.js`. |
+| Settings | Computer → Speed Normal/Fast (Fast = 0.4× the computer's pauses), remembered. Level, muggins, variants all remembered. |
+| Videos | Rules sheet → Videos: 4 YouTube links (Rulies how-to-play; Huddle Around Games beginners, discard fundamentals, 15 tips), all oEmbed 200 with matching titles 2026-10-28. |
 | Layout | No page scroll, no overflow, 0 console errors at 393×659 and 320×568 (WebKit), 659×393 landscape, 1280×800 and 1440×900 (Chrome). 2026-10-27. |
-| Tests | score 81, engine 95, ai 71, muggins 24, local 24 assertions; exhaustive 43/43; `node --test test/online.test.mjs` 6 (failed before `crib-online.js`). `node test/ui.online.mjs <url> [dir]`: two headless phones, real Firestore, whole game with the friend reloading mid-game (10-27: passed, 1.9 min, 121–94, no errors). |
+| Tests | score 81, engine 95, ai 71 (~2 min now; hard>medium bar 58% over 400 games), muggins 24, local 24, variants 451 assertions; exhaustive 43/43; `node --test test/online.test.mjs` 6 (failed before `crib-online.js`). `node test/ui.online.mjs <url> [dir]`: two headless phones, real Firestore, whole game with the friend reloading mid-game (10-27: passed, 1.9 min, 121–94, no errors). |
 | Online | **On (2026-10-27).** "Play a friend online" on the menu → name, Make a room / Join by 5-letter code. Shared kit `_online` v2 copied as `js/game-online.js` (byte-identical; `js/online.js` was taken by the old code). Rules adapter `js/crib-online.js`, transport `js/net.js` (lazy-loads the kit, Firestore `th-board-games`). Friend rooms only, no matchmaking. Empty seat at start = computer (Medium). Old own-project files (`js/online.js`, `js/firebase-config.js`, `firestore.rules`, `firebase.json`, `test/rules.test.js`) left in the repo, not loaded. |
 
 ## Online cost (2026-10-27, measured with the kit cost harness, v2 batching)
@@ -47,6 +50,8 @@ Brought up to the 2026-10 wave games (improve-1027): table look, wooden peg boar
 - Firestore rejects arrays of arrays (old online code: `showItemsJson`, `pegPlayed0/1`).
 - No test account (no logins).
 - Known small issue: the log can say "Name: go" for a player with no cards left.
+- **Hard vs Medium can't reach 65% by strengthening Hard alone** (2026-10-28, measured): pegging search, pegging-aware discards and more samples moved it only 53 → 55.5% vs the old Medium. The ladder came from also making Medium greedy at pegging. Pegging-aware discard gave +0.0 pts/hand — don't retry.
+- `tools/measure-levels.js 3000` now takes ~15 min (Hard's search). Saves from before 10-28 have no `target` → treated as 121.
 
 ## Decisions
 - Peg board replaces the two lanes (2026-10-27 brief: "wooden peg board"). Blue = you (lower row of each street), orange = computer.

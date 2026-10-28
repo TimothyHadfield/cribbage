@@ -27,7 +27,7 @@ step, no dependencies for the site itself.
 `python -m http.server <random high port> --bind 127.0.0.1` in the repo root (background option), then open it. `App.current` and `Local` in the console drive scripted checks.
 
 ## Test
-- `node test/score.test.js`, `engine.test.js`, `ai.test.js`, `muggins.test.js`, `local.test.js` — seconds each.
+- `node test/score.test.js`, `engine.test.js`, `muggins.test.js`, `local.test.js`, `variants.test.js` — seconds each; `ai.test.js` ~2 min (Hard's search in the level matches).
 - `node test/exhaustive.test.js` — about 6 minutes; run after any change to `score.js` or `engine.js`.
 - `node tools/measure-levels.js 3000` — a few minutes; re-run after AI changes and update `js/profile-crib.js` LEVELS.
 
