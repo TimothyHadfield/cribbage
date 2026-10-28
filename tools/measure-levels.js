@@ -27,7 +27,7 @@ function aiContext(st, seat, level) {
     hand: priv.hand, seq: pub.pegSeq,
     seen: priv.hand.concat(priv.thrown).concat(pub.pegPlayed0, pub.pegPlayed1).concat(pub.starter == null ? [] : [pub.starter]),
     myScore: pub.scores[seat], oppScore: pub.scores[E.other(seat)],
-    oppCards: seat === 0 ? pub.handSize1 : pub.handSize0, level,
+    oppCards: seat === 0 ? pub.handSize1 : pub.handSize0, level, target: pub.target, fiveCard: pub.fiveCard,
   };
 }
 

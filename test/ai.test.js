@@ -82,14 +82,16 @@ const codes = (cards) => cards.map(S.cardCode).sort().join(" ");
   eq(codes(r.cards), codes(ranked[0].throw), "the chosen throw is the top-ranked option");
 }
 {
-  // Medium is defined as "counts the hand exactly, ignores the crib". So its
-  // choice must be the one with the best expected HAND, whichever side deals.
+  // Medium is defined as "counts every cut, ignores the crib, settles for a
+  // keep within a point of the best". So its choice must be a near-best
+  // expected HAND, the same whichever side deals.
   const h = C("5H 5S 6D 7C 8H 9S");
   const m1 = AI.chooseDiscard(h, true, "medium", seeded(4));
   const m2 = AI.chooseDiscard(h, false, "medium", seeded(4));
   eq(codes(m1.cards), codes(m2.cards), "medium throws the same cards whoever deals — it ignores the crib");
   const best = m1.analysis.slice().sort((a, b) => b.expected - a.expected)[0];
-  eq(codes(m1.cards), codes(best.throw), "…and it maximises the expected hand exactly");
+  const chosen = m1.analysis.find((o) => codes(o.throw) === codes(m1.cards));
+  ok(chosen.expected >= best.expected - 1, "…and keeps a hand within a point of the best expected hand");
 }
 
 // --------------------------------------------------------------- the play
@@ -232,9 +234,12 @@ function match(levelA, levelB, games, seedBase) {
   console.log(`    hard vs easy:   ${(hardVsEasy * 100).toFixed(1)}% to hard`);
   ok(hardVsEasy > 0.60, `hard beats easy convincingly (got ${(hardVsEasy * 100).toFixed(1)}%)`);
 
-  const hardVsMedium = match("hard", "medium", 300, 12000);
+  // 2026-10-28: Hard searches the whole play and Medium no longer looks at
+  // the reply, so the gap is about two games in three (was 53%). 400 games
+  // put the old pair (53%) two standard errors under this bar.
+  const hardVsMedium = match("hard", "medium", 400, 12000);
   console.log(`    hard vs medium: ${(hardVsMedium * 100).toFixed(1)}% to hard`);
-  ok(hardVsMedium > 0.50, `hard has the edge on medium (got ${(hardVsMedium * 100).toFixed(1)}%)`);
+  ok(hardVsMedium > 0.58, `hard clearly beats medium (got ${(hardVsMedium * 100).toFixed(1)}%)`);
 
   const mediumVsEasy = match("medium", "easy", 300, 15000);
   console.log(`    medium vs easy: ${(mediumVsEasy * 100).toFixed(1)}% to medium`);

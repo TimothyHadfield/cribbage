@@ -8,14 +8,15 @@
   "use strict";
 
   /* Elo of each computer level, measured by tools/measure-levels.js
-   * (3,000 seeded games per pair, seats swapped, 2026-10-27):
-   *   medium beat easy 76.0% (+200), hard beat medium 53.0% (+21), hard beat easy 80.6% (+247).
-   * Cribbage is luck-heavy, so the gaps are small next to a game like Connect Four.
-   * Easy anchored at 1000; Hard = mean of its two paths (1247, 1221), rounded. */
+   * (3,000 seeded games per pair, seats swapped, 2026-10-28, after Hard got the
+   * whole-play search and Medium stopped looking at the reply):
+   *   medium beat easy 67.7% (+129), hard beat medium 66.7% (+121), hard beat easy 81.6% (+259).
+   *   (2026-10-27 before: 76.0% / 53.0% / 80.6%.)
+   * Easy anchored at 1000; Hard = mean of its two paths (1250, 1259), rounded. */
   const LEVELS = [
     { id: "easy", name: "Easy", rating: 1000 },
-    { id: "medium", name: "Medium", rating: 1200 },
-    { id: "hard", name: "Hard", rating: 1235 },
+    { id: "medium", name: "Medium", rating: 1129 },
+    { id: "hard", name: "Hard", rating: 1255 },
   ];
   const RANK = { easy: 0, medium: 1, hard: 2 };
   const won = (c) => !!(c.last && c.last.won);
