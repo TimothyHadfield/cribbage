@@ -37,6 +37,7 @@
   let fan = null;
   let countToken = 0;
   let gameSeq = 0;
+  let finaleUntil = 0, finaleTimer = 0; // the few seconds between the winning peg and the end banner
 
   const LEVEL_KEY = "cribbage.level.v1";
   const MUGGINS_KEY = "cribbage.muggins.v1";
@@ -557,6 +558,15 @@
     }
     if (newHand && p) fx("shuffle");
 
+    // The winning peg stays on the normal table a few seconds (winner's score glowing) before the
+    // end banner: the ending is a moment, not a cut (Catan lesson, 2026-11-25).
+    if (pub.phase === "gameover" && p && p.phase !== "gameover") {
+      const ms = cpuFast ? 2300 : 4500;
+      finaleUntil = Date.now() + ms;
+      clearTimeout(finaleTimer);
+      // prev = current: the redraw must not see the winning move as new again (no restart, no re-float)
+      finaleTimer = setTimeout(() => { if (current && current.pub.phase === "gameover") { prev = current; render(); } }, ms + 20);
+    } else if (pub.phase !== "gameover") finaleUntil = 0;
     renderPhase(pub, priv, seat, opp, thinking);
     trackReviews(pub, seat);
     redrawInfo();
@@ -566,7 +576,7 @@
   function renderScores(pub, seat, opp) {
     scoresBox.textContent = "";
     const one = (s, color, right) => {
-      const box = UI.el("div", "sc");
+      const box = UI.el("div", "sc" + (pub.phase === "gameover" && pub.winner === s ? " champ" : ""));
       box.dataset.seat = String(s);
       if (right) box.style.flexDirection = "row-reverse";
       const dot = UI.el("span", "dot"); dot.style.background = color;
@@ -616,6 +626,11 @@
     actionsBox.textContent = "";
     bannerSlot.textContent = "";
 
+    if (pub.phase === "gameover" && Date.now() < finaleUntil) {
+      const won = pub.winner === seat;
+      UI.renderPrompt(promptBox, won ? "You win!" : pub.names[pub.winner] + " wins!", `${pub.scores[seat]}–${pub.scores[opp]}`);
+      return;
+    }
     if (pub.phase === "gameover") {
       const won = pub.winner === seat;
       const banner = UI.el("div", "banner");
