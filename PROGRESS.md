@@ -56,6 +56,7 @@ Brought up to the 2026-10 wave games (improve-1027): table look, wooden peg boar
 ## Decisions
 - Peg board replaces the two lanes (2026-10-27 brief: "wooden peg board"). Blue = you (lower row of each street), orange = computer.
 - Muggins claim = − / + stepper (hold to repeat) + Claim; you name the total before the breakdown shows.
+- 2026-11-25 Catan-lessons pass (68bc6b2): reaching 121 now keeps the table 4.5 s (2.3 s with fast computers) with the winner's score box glowing (`.sc.champ`) and "You win!"/"X wins!" in the prompt, then the end banner. Measured 4.6 s phone / 4.5 s laptop in WebKit, no page scroll at 393×659 / 1280×720. Already fine: random first dealer, opponent hand shown at the end. Crib is not turned up at game end (left as is).
 - Rated unless Hint/Undo used; Daily game always Hard.
 - Undo history is per hand; no undo once the count starts.
 - Cards are integers 0-51. `handValue` duplicates `scoreHand` on purpose. "Go" is automatic.
