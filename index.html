@@ -158,7 +158,7 @@
   .opp-cards .played { opacity: .55; }
   .opp-cards .sep { width: 1px; align-self: stretch; background: rgba(255,255,255,.25); margin: 0 3px; }
 
-  .mid { display: flex; align-items: flex-start; gap: 12px; margin-top: 8px; --card-w: 54px; }
+  .mid { display: flex; align-items: flex-start; gap: 12px; margin-top: 8px; --card-w: 58px; }
   .slot { display: flex; flex-direction: column; align-items: center; gap: 3px; flex: none; }
   .slot-lab { font-size: 10px; letter-spacing: .1em; text-transform: uppercase; color: #bfe0cc; font-weight: 700; }
   .crib-stack { position: relative; width: var(--card-w); aspect-ratio: 63 / 88; }
@@ -172,8 +172,9 @@
   .count-big { font-size: 30px; font-weight: 800; font-variant-numeric: tabular-nums; line-height: 1; color: #fff; text-shadow: 0 1px 2px rgba(0,0,0,.5); }
   .count-cap { font-size: 10px; color: #bfe0cc; letter-spacing: .1em; text-transform: uppercase; font-weight: 700; }
   .peg-call { flex: 1; min-width: 0; font-size: 13px; font-weight: 700; color: var(--accent-warm); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-shadow: 0 1px 2px rgba(0,0,0,.5); }
-  .seq { display: flex; margin-top: 6px; min-height: calc(var(--card-w) * 88 / 63); --card-w: 46px; }
-  .seq .tbl-card { margin-right: calc(var(--card-w) * -0.42); box-shadow: -2px 1px 3px rgba(0,0,0,.25); }
+  .seq { display: flex; margin-top: 6px; min-height: calc(var(--card-w) * 88 / 63); --card-w: 58px; --n: 2; }
+  /* fit pass: the pile overlaps more as it grows (--n = cards on it, set in app.js) so it never leaves its column */
+  .seq .tbl-card { flex: none; margin-right: min(calc(var(--card-w) * -0.42), calc((100% - var(--n) * var(--card-w)) / (var(--n) - 1))); box-shadow: -2px 1px 3px rgba(0,0,0,.25); }
   .seq .tbl-card:last-child { margin-right: 0; }
   .seq .old { opacity: .45; }
   .seq .gap { width: 14px; flex: none; }
@@ -193,6 +194,12 @@
   .cs .red { color: #ff8f86; }
   .bd-total { border-top: 1px solid rgba(255,255,255,.15); margin-top: 4px; padding-top: 4px; font-weight: 800; display: flex; justify-content: space-between; }
   .bd-none { color: #cfe3d6; font-style: italic; }
+  /* fit pass: a long count (a 29 has 15 lines) goes in two columns wherever the felt is wide enough */
+  .count-view { container-type: inline-size; }
+  @container (min-width: 340px) {
+    .bd.many { display: grid; grid-template-columns: 1fr 1fr; column-gap: 18px; align-content: start; }
+    .bd.many .bd-total { grid-column: 1 / -1; }
+  }
   .claim-note { font-size: 12.5px; margin-top: 4px; }
   .claim-note.bad { color: var(--bad); }
 
@@ -295,16 +302,25 @@
   .dialog-actions { display: flex; justify-content: flex-end; gap: 8px; }
 
   /* ---------------------------------------------------------- small phones */
+  /* fit pass: where the table cards must be small, draw them like the computer's small cards
+     (big corner index + suit, no pips) so the rank stays >= 12 px */
+  @media (max-width: 350px), (max-height: 600px) and (max-width: 899px) {
+    .mid .tbl-card .tbl-pips, .mid .tbl-card .tbl-pip, .mid .tbl-card .tbl-idx.b,
+    .counted .tbl-card .tbl-pips, .counted .tbl-card .tbl-pip, .counted .tbl-card .tbl-idx.b { display: none; }
+    .mid .tbl-card .tbl-idx, .counted .tbl-card .tbl-idx { font-size: calc(var(--card-w) * .32); left: 8%; top: 5%; }
+    .mid .tbl-card[data-suit]::before, .counted .tbl-card[data-suit]::before { content: attr(data-suit); position: absolute; right: 10%; bottom: 6%; font-size: calc(var(--card-w) * .42); line-height: 1; }
+  }
   @media (max-width: 350px) {
-    .hand-row { --card-w: 56px; }
+    .hand-row { --card-w: 58px; }
     .opp-row .who-box { width: 78px; }
-    .mid { --card-w: 40px; }
+    .mid { --card-w: 42px; }
+    .seq { --card-w: 42px; }
     .count-view { --card-w: 48px; }
   }
   @media (max-height: 600px) and (max-width: 899px) {
-    .hand-row { --card-w: 54px; }
-    .mid { --card-w: 40px; margin-top: 4px; }
-    .seq { --card-w: 34px; }
+    .hand-row { --card-w: 58px; }
+    .mid { --card-w: 42px; margin-top: 4px; }
+    .seq { --card-w: 42px; }
     .prompt { padding: 6px 10px; }
     .prompt .p-sub, .prompt .hint { font-size: 12.5px; }
     .actions { margin-top: 4px; }
@@ -315,25 +331,32 @@
   @media (max-height: 500px) and (min-width: 560px) {
     .game-grid { flex-direction: row; }
     .main-col { flex-direction: row; }
-    .board-wrap { width: 38%; border-bottom: 0; border-right: 1px solid #1a0f06; display: flex; flex-direction: column; justify-content: center; }
+    .board-wrap { width: 42%; border-bottom: 0; border-right: 1px solid #1a0f06; display: flex; flex-direction: column; justify-content: center; }
     .pegboard svg { max-height: none; }
-    .hand-row { --card-w: 46px; }
+    .hand-row { --card-w: 58px; }
     .prompt { padding: 5px 10px; min-height: 0; }
     .prompt .p-title { font-size: 14px; }
     .prompt .p-sub, .prompt .hint { font-size: 12px; }
     .actions { margin-top: 4px; }
     .felt[data-phase="gameover"] #prompt { display: none; }
-    .mid { --card-w: 36px; margin-top: 2px; }
-    .seq { --card-w: 30px; }
-    .opp-row { --card-w: 24px; }
+    .mid { --card-w: 40px; margin-top: 2px; }
+    .seq { --card-w: 40px; }
+    .opp-row { --card-w: 32px; }
     .count-view { --card-w: 46px; }
-    .scores { font-size: 12px; gap: 4px; }
+    /* the board column is tall: one score per line, so long names and +gains never collide */
+    .scores { font-size: 13px; gap: 2px; flex-direction: column; align-items: stretch; padding-bottom: 6px; }
+    .scores .sc { flex-direction: row !important; }
     .sc { gap: 4px; }
     .sc .pts { font-size: 16px; }
     .sc .gain { min-width: 0; }
     .prompt:has(.hint) .p-sub { display: none; }   /* the hint says more than the sub-line */
     .opp-cards { min-height: 34px; }
     .felt { padding: 4px 10px; }
+    /* the computer's row sits under the board in the (otherwise empty) board column, so the
+       table column has room for readable cards */
+    .felt { position: static; }
+    .opp-row { position: absolute; left: 10px; bottom: max(10px, env(safe-area-inset-bottom)); width: calc(42% - 20px); }
+    .actions:empty { min-height: 0; margin-top: 0; }
   }
 
   /* ---------------------------------------------------------------- laptop */
@@ -363,10 +386,23 @@
   }
   @media (min-width: 900px) and (max-height: 860px) {
     .hand-row { --card-w: 78px; }
-    .mid { --card-w: 60px; }
-    .seq { --card-w: 52px; }
+    .mid { --card-w: 72px; }
+    .seq { --card-w: 64px; }
     .count-view { --card-w: 84px; }
     .pegboard svg { max-height: 26vh; }
+  }
+  /* fit pass: short laptop windows (1280x720 and less) cut your hand off the bottom */
+  @media (min-width: 900px) and (max-height: 760px) {
+    .pegboard svg { max-height: 19vh; }
+    .board-wrap { padding: 6px 18px 8px; }
+    .felt { padding: 10px 28px 8px; }
+    .opp-row { --card-w: 44px; }
+    .opp-cards { min-height: 62px; }
+    .mid { --card-w: 64px; margin-top: 8px; }
+    .seq { --card-w: 58px; }
+    .hand-row { --card-w: 74px; }
+    .count-view { --card-w: 66px; }
+    .bd { font-size: 14px; }
   }
 </style>
 </head>
@@ -527,8 +563,8 @@
 <script src="js/net.js?v=20261027p"></script>
 <script src="js/board.js?v=20261028a"></script>
 <script src="js/profile-crib.js?v=20261028a"></script>
-<script src="js/ui.js?v=20261027f"></script>
-<script src="js/app.js?v=20261125a"></script>
+<script src="js/ui.js?v=20261128a"></script>
+<script src="js/app.js?v=20261128a"></script>
 
 </body>
 </html>

@@ -512,6 +512,7 @@
 
     countBig.textContent = pub.phase === "pegging" ? String(pub.pegCount) : "—";
     seqBox.textContent = "";
+    seqBox.style.setProperty("--n", String(Math.max(2, pub.pegSeq.length)));   // the pile overlaps more as it grows
     const grew = p && !newHand && pub.pegSeq.length > p.pegSeq.length;
     pub.pegSeq.forEach((c, i) => {
       const n = UI.cardEl(c);

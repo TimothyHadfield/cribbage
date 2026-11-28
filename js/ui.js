@@ -57,7 +57,7 @@
 
   /** The itemised count at the show — every scoring combination, with its cards. */
   function renderBreakdown(items, points, label, wait) {
-    const box = el("div", "bd");
+    const box = el("div", "bd" + (items.length >= 7 ? " many" : ""));
     if (!items.length) {
       box.appendChild(el("div", "bd-none", "Nothing — a nineteen."));
     } else {
