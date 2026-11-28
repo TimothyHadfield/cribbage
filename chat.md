@@ -22,3 +22,9 @@ One entry per session, newest last. Older entries move to `docs/archive/`.
 - **Built:** ai.js whole-play pegging search + random tie-breaks; engine `target`/`fiveCard`; 3-card flush in score.js; board 61 lines; Settings rule switches + Speed; rules Variants + 4 videos; test/variants.test.js; Elo anchors.
 - **Verified how:** variants test failed on old engine (crash), 451 pass; new ai.test bar failed on old ai.js (51.7%), passes (71.3%); score/engine/muggins/local/online pass; exhaustive 43/43; measure-levels 3000/pair. Headless WebKit full five-card game to 61 (no errors); screenshots 393, 320, 659×393 (WebKit), 1280, 1440 (Chrome): no overflow, no page scroll. Daily with five-card on → 6 cards, 121.
 - **Open:** Tim's calls listed in the report (weaker Medium, variant games rated, labels).
+
+## 2026-11-28 — fit pass (builder, from the manager's all-games brief)
+- **Asked:** Tim: "make sure that they all are good in that aspect specifically" (spacing, sizing, can see everything). Focus: peg board, hand of 6/4, pegging pile + count >= 12 px, crib/starter, show breakdown, online screens.
+- **Built (c75a769):** pile + starter 58 px on iPhone (rank 9.7 → 12.2), pile overlap grows with its size (`--n` from app.js); small phones and sideways draw table cards corner-index style (rank 7.1/6.3 → 13.4/12.8), hand 58; sideways: scores one per line (fixed "+8+7117" collision), computer's row under the board; breakdown 2 columns when >= 7 lines and >= 340 px wide; laptops <= 760 px tall: smaller board so the hand isn't cut off (was cut ~50 px at 1280×720).
+- **Verified how:** new `test/fit-ui.mjs` (7 states × 6 sizes, WebKit phones + Chrome laptops): 188 FAIL on main → all pass. score/engine/muggins/local/variants + online.test pass. Online lobby sheet fits at 393/320/659×393 (no inner scroll, buttons >= 38 px).
+- **Open:** none for Tim beyond the report.

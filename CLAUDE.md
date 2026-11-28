@@ -29,6 +29,7 @@ step, no dependencies for the site itself.
 ## Test
 - `node test/score.test.js`, `engine.test.js`, `muggins.test.js`, `local.test.js`, `variants.test.js` — seconds each; `ai.test.js` ~2 min (Hard's search in the level matches).
 - `node test/exhaustive.test.js` — about 6 minutes; run after any change to `score.js` or `engine.js`.
+- `node test/fit-ui.mjs <url> [shotDir]` — layout/size check at 6 screen sizes against a local server (~1 min); run after any CSS or layout change.
 - `node tools/measure-levels.js 3000` — a few minutes; re-run after AI changes and update `js/profile-crib.js` LEVELS.
 
 ## Deploy
