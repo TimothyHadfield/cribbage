@@ -310,6 +310,26 @@
     .mid .tbl-card .tbl-idx, .counted .tbl-card .tbl-idx { font-size: calc(var(--card-w) * .32); left: 8%; top: 5%; }
     .mid .tbl-card[data-suit]::before, .counted .tbl-card[data-suit]::before { content: attr(data-suit); position: absolute; right: 10%; bottom: 6%; font-size: calc(var(--card-w) * .42); line-height: 1; }
   }
+  /* fit pass 2: phones held upright use their height - cards grow with the screen and the
+     spare felt is shared out evenly instead of collecting in one band above the prompt */
+  @media (max-width: 899px) and (min-height: 601px) {
+    .felt { justify-content: space-evenly; }
+    .prompt-row { margin-top: 0; }
+    #banner-slot:empty { display: none; }
+    .actions:empty { min-height: 0; margin-top: 0; }
+    .opp-row { --card-w: clamp(34px, calc(6vh - 12px), 44px); }
+    .mid { --card-w: clamp(58px, calc(19vh - 71px), 106px); }
+    /* the fan keeps empty room on top for a lifted card; let "Your hand" sit in that room */
+    #your-hand { margin-top: -10px; }
+    .seq { --card-w: clamp(58px, calc(9vh - 10px), 78px); }
+    .hand-row { --card-w: clamp(72px, calc(29vh - 100px), 160px); }
+    /* played cards still shrink, but sit a little higher so no tall gap opens under "Your hand" */
+    #your-hand .tbl-card.played { translate: 0 calc(var(--card-w) * -.04); }
+    .count-view { flex: 1 1 auto; justify-content: space-evenly; margin-top: 0; }
+    .count-view .counted { --card-w: clamp(60px, min(10vh, calc((100cqw - 44px) / 5)), 84px); }
+    .count-view .bd { margin-top: 0; font-size: clamp(13.5px, calc(3.2vh - 9px), 20px); }
+    .count-view .bd-item { padding: clamp(2px, calc(2.6vh - 15px), 10px) 0; }
+  }
   @media (max-width: 350px) {
     .hand-row { --card-w: 58px; }
     .opp-row .who-box { width: 78px; }

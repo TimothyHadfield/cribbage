@@ -19,7 +19,10 @@ const out = process.argv[3] || null;
 if (out) fs.mkdirSync(out, { recursive: true });
 
 const SIZES = [
-  { tag: '393', engine: 'webkit', w: 393, h: 659, phone: true },
+  { tag: '393', engine: 'webkit', w: 393, h: 659, phone: true, band: 40 },
+  { tag: '390t', engine: 'webkit', w: 390, h: 844, phone: true, band: 40 },
+  // the biggest phone: the cards hit their width limits, so the spare felt is spread a bit thinner than 40
+  { tag: '430t', engine: 'webkit', w: 430, h: 932, phone: true, band: 50 },
   { tag: '320', engine: 'webkit', w: 320, h: 568, phone: true },
   { tag: '659', engine: 'webkit', w: 659, h: 393, phone: true },
   { tag: '1280', engine: 'chromium', w: 1280, h: 800, phone: false },
@@ -145,7 +148,24 @@ const measure = () => {
     const ox = Math.min(a.right, b.right) - Math.max(a.left, b.left), oy = Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top);
     if (ox > 2 && oy > 2) m.blockOverlap.push(`${ka}/${kb} ${Math.round(ox)}x${Math.round(oy)}`);
   }
-  m.scoreOverlap =sc.length === 2 && sc[0].some((a) => sc[1].some((b) => a.left < b.right - 1 && b.left < a.right - 1 && a.top < b.bottom - 1 && b.top < a.bottom - 1));
+  // round 2: the tallest empty band of felt between the things on it (top to bottom)
+  const felt = document.querySelector('#felt'), fr = r(felt);
+  const inFelt = (b) => b.left >= fr.left - 1 && b.right <= fr.right + 1 && b.height > 0;
+  const parts = [];
+  const push = (el) => { if (vis(el)) { const b = r(el); if (inFelt(b)) parts.push(b); } };
+  push(document.querySelector('.opp-row')); push(document.querySelector('#mid'));
+  push(document.querySelector('#count-view .counted')); push(document.querySelector('#count-view .bd'));
+  push(document.querySelector('#banner-slot .banner')); push(document.querySelector('#prompt'));
+  const acts = document.querySelector('#actions'); if (acts && acts.children.length) push(acts);
+  push(document.querySelector('.hand-head'));
+  for (const c of document.querySelectorAll('#your-hand .tbl-card')) push(c);
+  parts.sort((a, b) => a.top - b.top);
+  let reach = fr.top + parseFloat(getComputedStyle(felt).paddingTop), band = 0, where = '';
+  for (const b of parts) { if (b.top - reach > band) { band = b.top - reach; where = `at y=${Math.round(reach)}`; } reach = Math.max(reach, b.bottom); }
+  const tail = Math.min(fr.bottom, innerHeight) - reach;
+  if (tail > band) { band = tail; where = 'at the bottom'; }
+  m.band = Math.round(band); m.bandWhere = where;
+  m.scoreOverlap = sc.length === 2 && sc[0].some((a) => sc[1].some((b) => a.left < b.right - 1 && b.left < a.right - 1 && a.top < b.bottom - 1 && b.top < a.bottom - 1));
   add('prompt', document.querySelector('#prompt'));
   for (const b of document.querySelectorAll('#actions .btn')) add('btn:' + b.textContent.trim().slice(0, 14), b, { tap: true });
   add('banner', document.querySelector('#banner-slot .banner'));
@@ -192,6 +212,8 @@ for (const size of SIZES.filter((s) => !process.env.FIT_ONLY || process.env.FIT_
     if (m.scrollH > m.H + 1) fail(`${tag}: page scroll ${m.scrollH} > ${m.H}`);
     if (m.scoreOverlap) fail(`${tag}: the two scores overlap`);
     for (const o of m.blockOverlap) fail(`${tag}: overlap ${o}`);
+    // round 2: no big empty band of felt on portrait phones (use the height for bigger cards instead)
+    if (size.band && m.band > size.band) fail(`${tag}: empty felt band ${m.band}px ${m.bandWhere} (> ${size.band})`);
     const minBoard = size.phone ? 46 : 120;
     const summary = {};
     for (const it of m.items) {
@@ -211,7 +233,7 @@ for (const size of SIZES.filter((s) => !process.env.FIT_ONLY || process.env.FIT_
       if (k === 'pegboard') summary.board = it.h;
       if (k === 'count') summary.count = it.font;
     }
-    console.log(`${tag}: ranks ${JSON.stringify(summary)} page ${m.scrollW}x${m.scrollH}`);
+    console.log(`${tag}: ranks ${JSON.stringify(summary)} band ${m.band} page ${m.scrollW}x${m.scrollH}`);
   }
   for (const e of errors) fail(`${size.tag}: ${e}`);
   await ctx.close();
